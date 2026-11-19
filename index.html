@@ -2413,8 +2413,71 @@
       return dot;
     }
 
-    /* 生成標準模板 (支援注音直書多聲調位置與橫書) */
-    function renderRefCanvas(text, isZhuyin, layout = 'vertical', tonePos = 'bottom') {
+    /* 解析注音符號本體與聲調 */
+    function parseZhuyin(text) {
+      const tones = ['ˊ', 'ˇ', 'ˋ', '˙', '‧'];
+      let tone = '';
+      let body = '';
+      for (let ch of text) {
+        if (tones.includes(ch)) tone = (ch === '‧') ? '˙' : ch;
+        else body += ch;
+      }
+      return { body, tone };
+    }
+
+    /* 智慧檢測注音手寫聲調 (四聲ˋ、二聲ˊ、三聲ˇ、一聲無調、輕聲˙) */
+    function detectZhuyinTone(canvas, bounds) {
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      const imgData = ctx.getImageData(0, 0, w, h).data;
+      const toneLeft = bounds.minX + bounds.width * 0.70;
+      let tonePixels = 0;
+      let sumX = 0, sumY = 0;
+      let points = [];
+
+      for (let y = bounds.minY; y <= bounds.minY + bounds.height; y += 2) {
+        for (let x = bounds.minX; x <= bounds.minX + bounds.width; x += 2) {
+          const idx = (y * w + x) * 4;
+          if (imgData[idx + 3] > 40) {
+            if (x >= toneLeft) {
+              tonePixels++;
+              sumX += x;
+              sumY += y;
+              points.push({ x, y });
+            }
+          }
+        }
+      }
+
+      const totalInk = bounds.count / 4;
+      const toneRatio = tonePixels / Math.max(1, totalInk);
+
+      // 若右側 30% 區域墨跡少於總量 3% 或少於 5 個取樣點，判定為無聲調 (一聲)
+      if (toneRatio < 0.03 || points.length < 5) {
+        return { tone: '', name: '一聲 (無調號)' };
+      }
+
+      let avgX = sumX / points.length;
+      let avgY = sumY / points.length;
+      let num = 0, den = 0;
+      for (let p of points) {
+        num += (p.x - avgX) * (p.y - avgY);
+        den += (p.x - avgX) * (p.x - avgX);
+      }
+      const slope = den > 0 ? (num / den) : 0;
+
+      // 下坡斜線 (dx>0, dy>0) 為去聲 ˋ；上坡斜線 (dx>0, dy<0) 為陽平 ˊ；其餘為上聲 ˇ
+      if (slope > 0.35) {
+        return { tone: 'ˋ', name: '四聲 (ˋ)' };
+      } else if (slope < -0.35) {
+        return { tone: 'ˊ', name: '二聲 (ˊ)' };
+      } else {
+        return { tone: 'ˇ', name: '三聲 (ˇ)' };
+      }
+    }
+
+    /* 生成標準模板 (支援注音居中直書與橫書) */
+    function renderRefCanvas(text, isZhuyin, layout = 'vertical') {
       const c = document.createElement('canvas');
       c.width = 240;
       c.height = 240;
@@ -2428,7 +2491,7 @@
         ctx.font = `bold ${fontSize}px 'Noto Serif TC', '標楷體', 'BiauKai', serif`;
         ctx.fillText(text, 120, 120);
       } else {
-        // 注音直書
+        // 注音直書 (符號本體居中排版)
         const tones = ['ˊ', 'ˇ', 'ˋ', '˙', '‧'];
         let tone = '';
         let symbols = [];
@@ -2437,32 +2500,18 @@
           else symbols.push(ch);
         }
         const count = symbols.length;
-        // 若有聲調，聲母介母主體略偏左 (x=105)，留右邊給聲調；若無聲調則居中 (x=120)
-        const symX = tone ? 105 : 120;
         if (count === 1) {
           ctx.font = "bold 150px 'Noto Serif TC', '標楷體', 'BiauKai', serif";
-          ctx.fillText(symbols[0], symX, 120);
+          ctx.fillText(symbols[0], 120, 120);
         } else if (count === 2) {
           ctx.font = "bold 95px 'Noto Serif TC', '標楷體', 'BiauKai', serif";
-          ctx.fillText(symbols[0], symX, 65);
-          ctx.fillText(symbols[1], symX, 175);
+          ctx.fillText(symbols[0], 120, 65);
+          ctx.fillText(symbols[1], 120, 175);
         } else if (count >= 3) {
           ctx.font = "bold 70px 'Noto Serif TC', '標楷體', 'BiauKai', serif";
-          ctx.fillText(symbols[0], symX, 45);
-          ctx.fillText(symbols[1], symX, 120);
-          ctx.fillText(symbols[2], symX, 195);
-        }
-        if (tone) {
-          ctx.font = "bold 65px 'Noto Serif TC', '標楷體', 'BiauKai', serif";
-          if (tone === '˙') {
-            ctx.fillText('˙', symX, 20);
-          } else {
-            // 彈性相容學生手寫聲調高度：'bottom' (近末字), 'mid' (中間偏上), 'top' (近首字)
-            let ty = (count === 2) ? 175 : 195;
-            if (tonePos === 'mid') ty = 120;
-            else if (tonePos === 'top') ty = 65;
-            ctx.fillText(tone, 185, ty);
-          }
+          ctx.fillText(symbols[0], 120, 45);
+          ctx.fillText(symbols[1], 120, 120);
+          ctx.fillText(symbols[2], 120, 195);
         }
       }
       return c;
@@ -2483,7 +2532,7 @@
       return [tl / sum, tr / sum, bl / sum, br / sum];
     }
 
-    /* 批改核心引擎 (優先判定「對/錯」，若寫錯別字直接判錯；字形正確才進一步評定「工整/潦草」) */
+    /* 批改核心引擎 (優先判定「對/錯」，若寫錯直接判錯，不評工整；確定寫對才評定「工整/潦草」) */
     function evaluateCanvas(player) {
       const canvas = (player === 'p1') ? p1Canvas : p2Canvas;
       const strokes = (player === 'p1') ? p1Strokes : p2Strokes;
@@ -2507,126 +2556,156 @@
         return { pass: false, reason: "字體過小或蜷縮一角", stamp: "❌ 結構過小", score: 15, isWrong: true };
       }
 
-      // 4. 提取用戶手寫的 16x16 (細部結構) 與 8x8 (重心特徵)
+      // 4. 提取用戶手寫的 16x16 與 8x8 特徵向量
       const uVec16 = getNormalizedDensityVector(canvas, uBounds.minX, uBounds.minY, uBounds.width, uBounds.height, 16);
       const uVec8 = getNormalizedDensityVector(canvas, uBounds.minX, uBounds.minY, uBounds.width, uBounds.height, 8);
       const uQuad = getQuadrantProfile(uVec16);
 
       const isZhuyin = (currentQ.type === "寫出注音");
-
-      // 5. 比對目標答案 ans
       let targetSimilarity = 0;
-      let refQuad = [0.25, 0.25, 0.25, 0.25];
 
+      // =========================================================================
+      // 軌道一：注音雙重檢驗 (本體符號 + 聲調獨立檢驗)
+      // =========================================================================
       if (isZhuyin) {
-        // 多位置容錯比對：直書聲調偏下、居中、偏上
-        const tonePositions = ['bottom', 'mid', 'top'];
-        for (let tp of tonePositions) {
-          const refV = renderRefCanvas(currentQ.ans, true, 'vertical', tp);
-          const bV = getTightBounds(refV);
-          const vVec16 = getNormalizedDensityVector(refV, bV.minX, bV.minY, bV.width, bV.height, 16);
-          const vVec8 = getNormalizedDensityVector(refV, bV.minX, bV.minY, bV.width, bV.height, 8);
-          const simV = 0.70 * calcCosineSim(uVec16, vVec16, 256) + 0.30 * calcCosineSim(uVec8, vVec8, 64);
-          if (simV > targetSimilarity) {
-            targetSimilarity = simV;
-            refQuad = getQuadrantProfile(vVec16);
+        const targetParsed = parseZhuyin(currentQ.ans);
+        const userTone = detectZhuyinTone(canvas, uBounds);
+
+        // 1. 本體符號匹配度 (居中渲染比對，徹底排除聲調位移偏差)
+        const refBody = renderRefCanvas(targetParsed.body, true, 'vertical');
+        const bB = getTightBounds(refBody);
+        const vVec16 = getNormalizedDensityVector(refBody, bB.minX, bB.minY, bB.width, bB.height, 16);
+        const vVec8 = getNormalizedDensityVector(refBody, bB.minX, bB.minY, bB.width, bB.height, 8);
+        const bodySim = 0.70 * calcCosineSim(uVec16, vVec16, 256) + 0.30 * calcCosineSim(uVec8, vVec8, 64);
+
+        // 比對干擾選項本體
+        let bestDistractor = null;
+        let maxDistractorSim = 0;
+        if (currentQ.distractors && currentQ.distractors.length > 0) {
+          for (let d of currentQ.distractors) {
+            if (!d || d === currentQ.ans) continue;
+            const dParsed = parseZhuyin(d);
+            const dRef = renderRefCanvas(dParsed.body, true, 'vertical');
+            const db = getTightBounds(dRef);
+            const dv16 = getNormalizedDensityVector(dRef, db.minX, db.minY, db.width, db.height, 16);
+            const dv8 = getNormalizedDensityVector(dRef, db.minX, db.minY, db.width, db.height, 8);
+            const dSim = 0.70 * calcCosineSim(uVec16, dv16, 256) + 0.30 * calcCosineSim(uVec8, dv8, 64);
+            if (dSim > maxDistractorSim) {
+              maxDistractorSim = dSim;
+              bestDistractor = d;
+            }
           }
         }
-        // 橫書後備
-        const refH = renderRefCanvas(currentQ.ans, true, 'horizontal');
-        const bH = getTightBounds(refH);
-        const hVec16 = getNormalizedDensityVector(refH, bH.minX, bH.minY, bH.width, bH.height, 16);
-        const hVec8 = getNormalizedDensityVector(refH, bH.minX, bH.minY, bH.width, bH.height, 8);
-        const simH = 0.70 * calcCosineSim(uVec16, hVec16, 256) + 0.30 * calcCosineSim(uVec8, hVec8, 64);
-        if (simH > targetSimilarity) {
-          targetSimilarity = simH;
-          refQuad = getQuadrantProfile(hVec16);
+
+        // 檢驗 A：聲韻本體錯誤 (如寫成 ㄕㄨㄛ 或結構不符)
+        if (maxDistractorSim > bodySim + 0.08 && maxDistractorSim >= 0.38) {
+          return {
+            pass: false,
+            stamp: "❌ 注音寫錯！",
+            reason: `聲韻寫成「${bestDistractor}」！正解為「${currentQ.ans}」（${currentQ.hint}）`,
+            score: Math.round(bodySim * 100),
+            isWrong: true
+          };
         }
+        if (bodySim < 0.28) {
+          return {
+            pass: false,
+            stamp: "❌ 注音寫錯！",
+            reason: `注音筆劃不符，非正解「${currentQ.ans}」！(正解為：${currentQ.ans})`,
+            score: Math.round(bodySim * 100),
+            isWrong: true
+          };
+        }
+
+        // 檢驗 B：聲調檢驗 (四聲 ˋ、二聲 ˊ、三聲 ˇ、一聲無調)
+        if (targetParsed.tone !== userTone.tone) {
+          if (targetParsed.tone !== '' && userTone.tone === '') {
+            return {
+              pass: false,
+              stamp: "❌ 漏寫聲調！",
+              reason: `漏寫聲調！寫成第一聲「${targetParsed.body}」，正解為「${currentQ.ans}」（${currentQ.hint}）`,
+              score: Math.round(bodySim * 100),
+              isWrong: true
+            };
+          } else if (targetParsed.tone === '' && userTone.tone !== '') {
+            return {
+              pass: false,
+              stamp: "❌ 聲調寫錯！",
+              reason: `本字為第一聲不標調，寫成「${targetParsed.body + userTone.tone}」！正解為「${currentQ.ans}」`,
+              score: Math.round(bodySim * 100),
+              isWrong: true
+            };
+          } else {
+            return {
+              pass: false,
+              stamp: "❌ 聲調寫錯！",
+              reason: `聲調錯誤！寫成「${targetParsed.body + userTone.tone}」(${userTone.name})，正解為「${currentQ.ans}」（${currentQ.hint}）`,
+              score: Math.round(bodySim * 100),
+              isWrong: true
+            };
+          }
+        }
+
+        // 注音本體與聲調均正確，第一層通關！
+        targetSimilarity = bodySim;
+
+      // =========================================================================
+      // 軌道二：國字評閱專用軌道 (嚴格辨別錯別字，如「墨」vs「默」)
+      // =========================================================================
       } else {
         const refC = renderRefCanvas(currentQ.ans, false, 'horizontal');
         const bC = getTightBounds(refC);
         const cVec16 = getNormalizedDensityVector(refC, bC.minX, bC.minY, bC.width, bC.height, 16);
         const cVec8 = getNormalizedDensityVector(refC, bC.minX, bC.minY, bC.width, bC.height, 8);
         targetSimilarity = 0.70 * calcCosineSim(uVec16, cVec16, 256) + 0.30 * calcCosineSim(uVec8, cVec8, 64);
-        refQuad = getQuadrantProfile(cVec16);
-      }
+        const refQuad = getQuadrantProfile(cVec16);
 
-      // 6. 錯別字與干擾選項精準比對 (Distractor Contrast)
-      // 例如：題目正解是「默」，但學生寫成形近字「墨」；或正解「ㄆㄨˋ」，但學生寫成「ㄆㄨ」或「ㄆㄨˇ」
-      let bestDistractor = null;
-      let maxDistractorSim = 0;
-
-      if (currentQ.distractors && currentQ.distractors.length > 0) {
-        for (let d of currentQ.distractors) {
-          if (!d || d === currentQ.ans) continue;
-          let dSim = 0;
-          if (isZhuyin) {
-            for (let tp of ['bottom', 'mid', 'top']) {
-              const dRefV = renderRefCanvas(d, true, 'vertical', tp);
-              const dbV = getTightBounds(dRefV);
-              const dvVec16 = getNormalizedDensityVector(dRefV, dbV.minX, dbV.minY, dbV.width, dbV.height, 16);
-              const dvVec8 = getNormalizedDensityVector(dRefV, dbV.minX, dbV.minY, dbV.width, dbV.height, 8);
-              const simV = 0.70 * calcCosineSim(uVec16, dvVec16, 256) + 0.30 * calcCosineSim(uVec8, dvVec8, 64);
-              if (simV > dSim) dSim = simV;
-            }
-            const dRefH = renderRefCanvas(d, true, 'horizontal');
-            const dbH = getTightBounds(dRefH);
-            const dhVec16 = getNormalizedDensityVector(dRefH, dbH.minX, dbH.minY, dbH.width, dbH.height, 16);
-            const dhVec8 = getNormalizedDensityVector(dRefH, dbH.minX, dbH.minY, dbH.width, dbH.height, 8);
-            const simH = 0.70 * calcCosineSim(uVec16, dhVec16, 256) + 0.30 * calcCosineSim(uVec8, dhVec8, 64);
-            if (simH > dSim) dSim = simH;
-          } else {
+        let bestDistractor = null;
+        let maxDistractorSim = 0;
+        if (currentQ.distractors && currentQ.distractors.length > 0) {
+          for (let d of currentQ.distractors) {
+            if (!d || d === currentQ.ans) continue;
             const dRef = renderRefCanvas(d, false, 'horizontal');
             const db = getTightBounds(dRef);
             const dVec16 = getNormalizedDensityVector(dRef, db.minX, db.minY, db.width, db.height, 16);
             const dVec8 = getNormalizedDensityVector(dRef, db.minX, db.minY, db.width, db.height, 8);
-            dSim = 0.70 * calcCosineSim(uVec16, dVec16, 256) + 0.30 * calcCosineSim(uVec8, dVec8, 64);
+            const dSim = 0.70 * calcCosineSim(uVec16, dVec16, 256) + 0.30 * calcCosineSim(uVec8, dVec8, 64);
+            if (dSim > maxDistractorSim) {
+              maxDistractorSim = dSim;
+              bestDistractor = d;
+            }
           }
+        }
 
-          if (dSim > maxDistractorSim) {
-            maxDistractorSim = dSim;
-            bestDistractor = d;
-          }
+        let quadDiff = 0;
+        for (let i = 0; i < 4; i++) quadDiff += Math.abs(uQuad[i] - refQuad[i]);
+
+        // 判斷 1：寫成錯別字 (如寫成「墨」匹配度高於「默」0.08 以上)
+        if (bestDistractor && maxDistractorSim >= 0.55 && (maxDistractorSim > targetSimilarity + 0.08)) {
+          return {
+            pass: false,
+            stamp: "❌ 寫錯別字！",
+            reason: `寫成錯別字「${bestDistractor}」！正解為「${currentQ.ans}」（${currentQ.hint}）`,
+            score: Math.round(targetSimilarity * 100),
+            isWrong: true
+          };
+        }
+
+        // 判斷 2：非正解字形或結構嚴重錯誤
+        if (targetSimilarity < 0.30 || quadDiff > 0.40) {
+          return {
+            pass: false,
+            stamp: "❌ 寫錯字！",
+            reason: `筆劃結構錯誤，非正解「${currentQ.ans}」！(正解為：${currentQ.ans})`,
+            score: Math.round(targetSimilarity * 100),
+            isWrong: true
+          };
         }
       }
 
-      // 計算象限質量差異 (抓出上下結構 vs 左右結構嚴重不符)
-      let quadDiff = 0;
-      for (let i = 0; i < 4; i++) {
-        quadDiff += Math.abs(uQuad[i] - refQuad[i]);
-      }
-
-      // 【第一層：先判斷「字對不對」！錯的話直接算錯，不用評定工整好看】
-      // 判斷 1：手寫字與錯別字/干擾音匹配度「顯著高於」正解 (如寫成「墨」明顯高於「默」，或寫成「ㄆㄨ」無聲調明顯高於「ㄆㄨˋ」)
-      // 嚴格規定：干擾選項匹配度必須「明確超越」正解 (至少高出 0.04 以上且達 0.55)，若正解更高或相近，絕不能判定為錯別字！
-      if (bestDistractor && maxDistractorSim >= 0.55 && (maxDistractorSim > targetSimilarity + 0.04)) {
-        return {
-          pass: false,
-          stamp: isZhuyin ? "❌ 注音寫錯！" : "❌ 寫錯別字！",
-          reason: isZhuyin 
-            ? `寫成「${bestDistractor}」！正解為「${currentQ.ans}」（${currentQ.hint}）`
-            : `寫成錯別字「${bestDistractor}」！正解為「${currentQ.ans}」（${currentQ.hint}）`,
-          score: Math.round(targetSimilarity * 100),
-          isWrong: true
-        };
-      }
-
-      // 判斷 2：相似度過低或字體巨觀結構嚴重錯誤 (非該字)
-      const quadLimit = isZhuyin ? 0.45 : 0.36;
-      if (targetSimilarity < 0.46 || quadDiff > quadLimit) {
-        return {
-          pass: false,
-          stamp: isZhuyin ? "❌ 注音寫錯！" : "❌ 寫錯字！",
-          reason: isZhuyin
-            ? `注音結構錯誤，非正解「${currentQ.ans}」！(正解為：${currentQ.ans})`
-            : `筆劃結構錯誤，非正解「${currentQ.ans}」！(正解為：${currentQ.ans})`,
-          score: Math.round(targetSimilarity * 100),
-          isWrong: true
-        };
-      }
-
+      // =========================================================================
       // 【第二層：字確定「寫對了」，接著進一步嚴格評定「工整」還是「潦草」！】
-      // 筆劃數檢測與連筆潦草懲罰 (防止寫 13 劃的字只草寫 3 劃)
+      // =========================================================================
       const expectedStrokes = getExpectedStrokes(currentQ.ans, isZhuyin);
       let strokePenalty = 1.0;
       const minReasonableStrokes = Math.max(2, Math.floor(expectedStrokes * 0.45));
@@ -2635,19 +2714,18 @@
         strokePenalty = Math.max(0.55, 0.40 + 0.60 * ratio);
       }
 
-      let neatnessScore = Math.round(targetSimilarity * 100 * strokePenalty);
-      neatnessScore = Math.max(5, Math.min(98, neatnessScore));
+      let neatnessScore = Math.round(Math.min(98, Math.max(10, targetSimilarity * 160 * strokePenalty)));
 
-      // 依據教師設定標準判定 (一般標準：60分及格；嚴格標準：75分及格；寬鬆標準：45分及格)
-      let passThreshold = 60;
+      // 依據教師設定標準判定 (一般標準：55分及格；嚴格標準：70分及格；寬鬆標準：40分及格)
+      let passThreshold = 55;
       let sloppyThreshold = 35;
 
       if (gradingStandard === 'strict') {
-        passThreshold = 75;
+        passThreshold = 70;
         sloppyThreshold = 45;
       } else if (gradingStandard === 'loose') {
-        passThreshold = 45;
-        sloppyThreshold = 28;
+        passThreshold = 40;
+        sloppyThreshold = 25;
       }
 
       if (neatnessScore >= passThreshold) {
@@ -2658,6 +2736,21 @@
           score: neatnessScore 
         };
       } else if (neatnessScore >= sloppyThreshold) {
+        return { 
+          pass: false, 
+          stamp: "⚠️ 字對但太潦草！", 
+          reason: `字形正確，但筆跡太過潦草！(工整度 ${neatnessScore}分，需達 ${passThreshold}分)`, 
+          score: neatnessScore 
+        };
+      } else {
+        return { 
+          pass: false, 
+          stamp: "❌ 筆劃散漫！", 
+          reason: `筆劃散漫無法辨識！(工整度 ${neatnessScore}分，老師可點擊印章一鍵改對)`, 
+          score: neatnessScore 
+        };
+      }
+    }
         // 抓出字對但太潦草！不予通過
         return { 
           pass: false, 
