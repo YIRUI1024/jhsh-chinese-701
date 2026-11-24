@@ -1,0 +1,3481 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>國文二段複習大作戰 🎮 課堂互動教學系統</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+    
+    body {
+      font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      background-color: #f8fafc;
+      color: #1e293b;
+    }
+
+    .font-chinese {
+      font-family: 'Noto Serif TC', 'DFKai-SB', 'BiauKai', '標楷體', serif;
+    }
+
+    /* 3D 翻牌專用效果 */
+    .perspective-1000 {
+      perspective: 1000px;
+    }
+    .transform-style-3d {
+      transform-style: preserve-3d;
+    }
+    .backface-hidden {
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+    .rotate-y-180 {
+      transform: rotateY(180deg);
+    }
+
+    /* 仿真實書寫板淺灰九宮/米字格背景 */
+    .handwriting-grid {
+      background-color: #ffffff;
+      background-image: 
+        linear-gradient(to right, rgba(203, 213, 225, 0.6) 1.5px, transparent 1.5px),
+        linear-gradient(to bottom, rgba(203, 213, 225, 0.6) 1.5px, transparent 1.5px),
+        linear-gradient(45deg, transparent calc(50% - 0.75px), rgba(226, 232, 240, 0.7) calc(50% - 0.75px), rgba(226, 232, 240, 0.7) calc(50% + 0.75px), transparent calc(50% + 0.75px)),
+        linear-gradient(-45deg, transparent calc(50% - 0.75px), rgba(226, 232, 240, 0.7) calc(50% - 0.75px), rgba(226, 232, 240, 0.7) calc(50% + 0.75px), transparent calc(50% + 0.75px));
+      background-size: 100% 100%;
+    }
+
+    /* 震動動畫 */
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-10px); }
+      40%, 80% { transform: translateX(10px); }
+    }
+    .animate-shake {
+      animation: shake 0.4s ease-in-out;
+    }
+
+    /* 轉盤外框發光 */
+    .wheel-glow {
+      box-shadow: 0 0 35px rgba(245, 158, 11, 0.35);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased bg-slate-50 text-slate-800">
+
+  <!-- ========================================================================= -->
+  <!-- 頂部全域導航列 -->
+  <!-- ========================================================================= -->
+  <header class="bg-white/95 backdrop-blur border-b border-slate-200 px-6 py-3.5 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-[1500px] mx-auto flex flex-wrap items-center justify-between gap-4">
+      <!-- 標題與段考範圍 -->
+      <div class="flex items-center space-x-3.5">
+        <span class="text-3xl filter drop-shadow">🏮</span>
+        <div>
+          <h1 class="text-2xl font-black bg-gradient-to-r from-red-600 via-amber-600 to-indigo-700 bg-clip-text text-transparent tracking-wide">
+            國文二段複習大作戰
+          </h1>
+          <p class="text-xs text-slate-500 font-bold">錦和高中 701 專用 • 康軒一上 4~語二（差不多先生／論語選／那默默的一群／語常二）</p>
+        </div>
+      </div>
+
+      <!-- 四大核心遊戲模式導航 -->
+      <nav class="flex items-center bg-slate-100 p-1.5 rounded-2xl border border-slate-200 space-x-1.5 shadow-inner">
+        <button onclick="switchTab('flashcard')" id="tab-flashcard" class="tab-btn px-4 py-2 rounded-xl text-sm font-black transition-all flex items-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-white/80">
+          <span>🃏</span>
+          <span>① 注釋記憶屋</span>
+        </button>
+        <button onclick="switchTab('quiz')" id="tab-quiz" class="tab-btn px-4 py-2 rounded-xl text-sm font-black transition-all flex items-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-white/80">
+          <span>⚡</span>
+          <span>② 國字注音狂暴戰</span>
+        </button>
+        <button onclick="switchTab('battle')" id="tab-battle" class="tab-btn px-4 py-2 rounded-xl text-sm font-black transition-all flex items-center gap-2 bg-indigo-600 text-white shadow-md shadow-indigo-500/20">
+          <span>⚔️</span>
+          <span>③ 雙人手寫擂台 PK</span>
+        </button>
+        <button onclick="switchTab('comprehension')" id="tab-comprehension" class="tab-btn px-4 py-2 rounded-xl text-sm font-black transition-all flex items-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-white/80">
+          <span>📖</span>
+          <span>④ 課本文意理解深究</span>
+        </button>
+      </nav>
+
+      <!-- 工具按鈕：701抽籤轉盤、音效與全螢幕 -->
+      <div class="flex items-center gap-2.5">
+        <!-- 701 專屬點名轉盤按鈕 -->
+        <button onclick="openWheelModal()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs sm:text-sm shadow-md shadow-orange-500/20 transition flex items-center gap-2 animate-bounce">
+          <span>🎯</span>
+          <span>701 抽籤轉盤</span>
+        </button>
+        <button onclick="toggleSound()" id="sound-btn" class="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-amber-600 border border-slate-200 shadow-sm transition flex items-center gap-1.5 text-xs font-bold" title="開關音效">
+          <span id="sound-icon">🔊</span>
+          <span>音效</span>
+        </button>
+        <button onclick="toggleFullScreen()" class="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-sm transition flex items-center gap-1.5 text-xs font-bold" title="全螢幕投屏">
+          <span>⛶</span>
+          <span>全螢幕</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- 主內容容器 -->
+  <!-- ========================================================================= -->
+  <main class="flex-1 max-w-[1500px] w-full mx-auto p-4 sm:p-6 flex flex-col justify-start">
+
+    <!-- ========================================================================= -->
+    <!-- 模組三：雙人手寫擂台 PK (手寫寬鬆防呆 + 直書注音比對 + 一鍵改對) -->
+    <!-- ========================================================================= -->
+    <section id="section-battle" class="tab-content flex-1 flex flex-col">
+      
+      <!-- 頂部功能與比分看板 (仿圖片) -->
+      <div class="bg-white rounded-2xl px-5 py-3.5 mb-4 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <!-- 左側：標題與題庫選單 -->
+        <div class="flex items-center gap-3">
+          <div class="px-4 py-2 rounded-full bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 text-white font-black text-sm flex items-center gap-2 shadow-sm">
+            <span>🚀</span>
+            <span>國字注音 PK 賽</span>
+          </div>
+
+          <select id="pk-filter-select" onchange="onFilterChange()" class="bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-xl px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 outline-none">
+            <option value="all">全部題庫 (100題)</option>
+            <option value="char">只測國字題 (45題)</option>
+            <option value="phone">只測注音題 (55題)</option>
+            <option value="tone">二聲三聲陷阱特訓 (25題)</option>
+          </select>
+
+          <span class="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 font-mono text-xs font-bold">
+            第 <span id="battle-round-num" class="text-amber-900 font-black text-sm">2</span> / <span id="battle-total-num">100</span> 題
+          </span>
+        </div>
+
+        <!-- 中間：紅藍比分看板 (仿圖片) -->
+        <div class="bg-slate-100/90 border border-slate-200 px-6 py-1.5 rounded-2xl flex items-center gap-4 shadow-inner">
+          <span class="font-black text-sm text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200">紅隊</span>
+          <span id="p1-score" class="font-mono text-3xl font-black text-rose-600">0</span>
+          <span class="text-slate-400 font-black text-base">VS</span>
+          <span id="p2-score" class="font-mono text-3xl font-black text-blue-600">0</span>
+          <span class="font-black text-sm text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">藍隊</span>
+        </div>
+
+        <!-- 右側：批改標準切換、重置比分與音效 -->
+        <div class="flex items-center gap-2.5">
+          <button onclick="toggleGradingStandard()" id="btn-grading-standard" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 text-indigo-800 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm" title="點擊切換標準">
+            <span>⚖️</span>
+            <span>批改標準：<strong id="grading-standard-text">一般 (60分)</strong></span>
+          </button>
+          <button onclick="resetBattleScores()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1">
+            <span>🔄</span>
+            <span>重置比分</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 第二層：題目展示列與操作按鈕 (仿圖片) -->
+      <div class="bg-white rounded-2xl px-6 py-4 mb-4 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <!-- 題目類型標籤與原卷編號 -->
+        <div class="flex items-center gap-2">
+          <span id="pk-type-badge" class="px-4 py-2 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300 text-sm font-black flex items-center gap-1.5 shadow-sm">
+            <span>🗣️</span> <span id="pk-type-text">寫出注音</span>
+          </span>
+          <span id="pk-origin-ref" class="text-xs text-slate-400 font-medium">原卷 #2</span>
+        </div>
+
+        <!-- 題目核心大字展示區 (目標字為虛線紅框粉紅底，如圖片中的 差 遣) -->
+        <div id="pk-prompt-container" class="flex-1 flex items-center justify-center text-4xl sm:text-5xl font-chinese font-bold text-slate-800 tracking-wider">
+          <span id="pk-text-prefix"></span>
+          <span id="pk-target-box" class="border-3 border-dashed border-rose-400 bg-rose-50 text-rose-600 px-5 py-1.5 rounded-2xl mx-1.5 font-chinese font-black shadow-inner">
+            差
+          </span>
+          <span id="pk-text-suffix">遣</span>
+        </div>
+
+        <!-- 右側動作按鈕組 (隨機抽題、AI 智慧批改、公佈答案、下一題) -->
+        <div class="flex items-center gap-2.5">
+          <button onclick="randomBattleQuestion()" class="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-black text-sm rounded-xl shadow-md shadow-amber-500/20 transition flex items-center gap-1.5">
+            <span>🎲</span> 隨機抽題
+          </button>
+          <button onclick="gradeBothPlayers()" class="px-5 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 active:scale-95 text-white font-black text-sm rounded-xl shadow-md shadow-indigo-600/30 transition flex items-center gap-2">
+            <span>🤖</span> AI 智慧批改
+          </button>
+          <button onclick="revealAnswer()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-sm rounded-xl shadow-md shadow-emerald-600/20 transition flex items-center gap-1.5">
+            <span>👁️</span> 公佈答案
+          </button>
+          <button onclick="nextBattleQuestion()" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black text-sm rounded-xl shadow-md shadow-blue-600/20 transition flex items-center gap-1.5">
+            下一題 <span>➜</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 答案揭曉橫幅 (平常隱藏，按公佈答案或批改後滑出) -->
+      <div id="answer-reveal-banner" class="hidden bg-emerald-50 border-2 border-emerald-400 rounded-2xl p-4 mb-4 text-center shadow-md transition-all">
+        <div class="flex items-center justify-center gap-4 text-lg font-bold text-emerald-900">
+          <span>🎯 正確解答：</span>
+          <span id="reveal-ans-text" class="text-3xl font-chinese font-black text-emerald-700 bg-white px-5 py-1 rounded-xl border border-emerald-300 shadow-sm">
+            ㄔㄞ
+          </span>
+          <span id="reveal-hint-text" class="text-sm font-medium text-emerald-800">
+            （解析：差遣讀 ㄔㄞ，差異讀 ㄔㄚ，參差讀 ㄘ）
+          </span>
+        </div>
+      </div>
+
+      <!-- 雙人大畫布面板區 (左右各一半，仿圖片設計) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5 flex-1 items-stretch">
+        
+        <!-- 左邊：紅隊手寫板 (仿圖片紅框設計) -->
+        <div class="bg-white rounded-3xl border-2 border-rose-300 shadow-sm flex flex-col overflow-hidden relative">
+          <!-- 頂部標題列 -->
+          <div class="bg-rose-50/80 border-b border-rose-200 px-5 py-3 flex items-center justify-between">
+            <span class="font-black text-base text-rose-600 flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-rose-500"></span>
+              紅隊手寫板
+            </span>
+            <div id="p1-status-tag" class="text-xs font-bold text-rose-500">
+              等待書寫中...
+            </div>
+          </div>
+
+          <!-- 畫布區域 (大九宮格/米字格 + 浮水印) -->
+          <div class="relative flex-1 min-h-[320px] h-[360px] bg-white handwriting-grid flex items-center justify-center overflow-hidden">
+            <canvas id="canvas-p1" width="600" height="450" class="w-full h-full cursor-crosshair touch-none" style="touch-action: none;"></canvas>
+            
+            <!-- 浮水印文字 (書寫後自動淡出) -->
+            <div id="p1-watermark" class="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-200 text-3xl font-black font-chinese tracking-widest">
+              請在此區域手寫作答
+            </div>
+
+            <!-- 印章標籤 (批改結果，可直接點擊一鍵改對) -->
+            <div id="p1-stamp" class="absolute inset-0 flex items-center justify-center pointer-events-auto hidden"></div>
+          </div>
+
+          <!-- 底部控制按鈕列 (仿圖片：清除 + 大完成舉手按鈕) -->
+          <div class="p-4 bg-slate-50/60 border-t border-slate-100 flex items-center gap-3">
+            <button onclick="clearCanvas('p1')" class="px-5 py-3.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold text-sm rounded-2xl shadow-sm transition flex items-center gap-1.5 whitespace-nowrap">
+              <span>🧹</span> 清除
+            </button>
+            <button onclick="togglePlayerReady('p1')" id="p1-ready-btn" class="flex-1 py-3.5 bg-rose-500 hover:bg-rose-600 active:scale-98 text-white font-black text-base rounded-2xl shadow-md shadow-rose-500/20 transition flex items-center justify-center gap-2">
+              <span>✋</span> 完成舉手
+            </button>
+            <button onclick="overrideToCorrect('p1')" class="px-4 py-3.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-black text-xs rounded-2xl transition" title="老師直接給分">
+              +1分
+            </button>
+          </div>
+        </div>
+
+        <!-- 右邊：藍隊手寫板 (仿圖片藍框設計) -->
+        <div class="bg-white rounded-3xl border-2 border-blue-300 shadow-sm flex flex-col overflow-hidden relative">
+          <!-- 頂部標題列 -->
+          <div class="bg-blue-50/80 border-b border-blue-200 px-5 py-3 flex items-center justify-between">
+            <span class="font-black text-base text-blue-600 flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+              藍隊手寫板
+            </span>
+            <div id="p2-status-tag" class="text-xs font-bold text-blue-500">
+              等待書寫中...
+            </div>
+          </div>
+
+          <!-- 畫布區域 (大九宮格/米字格 + 浮水印) -->
+          <div class="relative flex-1 min-h-[320px] h-[360px] bg-white handwriting-grid flex items-center justify-center overflow-hidden">
+            <canvas id="canvas-p2" width="600" height="450" class="w-full h-full cursor-crosshair touch-none" style="touch-action: none;"></canvas>
+            
+            <!-- 浮水印文字 -->
+            <div id="p2-watermark" class="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-200 text-3xl font-black font-chinese tracking-widest">
+              請在此區域手寫作答
+            </div>
+
+            <!-- 印章標籤 -->
+            <div id="p2-stamp" class="absolute inset-0 flex items-center justify-center pointer-events-auto hidden"></div>
+          </div>
+
+          <!-- 底部控制按鈕列 (仿圖片：清除 + 大完成舉手按鈕) -->
+          <div class="p-4 bg-slate-50/60 border-t border-slate-100 flex items-center gap-3">
+            <button onclick="clearCanvas('p2')" class="px-5 py-3.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold text-sm rounded-2xl shadow-sm transition flex items-center gap-1.5 whitespace-nowrap">
+              <span>🧹</span> 清除
+            </button>
+            <button onclick="togglePlayerReady('p2')" id="p2-ready-btn" class="flex-1 py-3.5 bg-blue-500 hover:bg-blue-600 active:scale-98 text-white font-black text-base rounded-2xl shadow-md shadow-blue-500/20 transition flex items-center justify-center gap-2">
+              <span>✋</span> 完成舉手
+            </button>
+            <button onclick="overrideToCorrect('p2')" class="px-4 py-3.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-black text-xs rounded-2xl transition" title="老師直接給分">
+              +1分
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 模組一：注釋記憶屋 (3D 抽認卡 + 記憶消消樂) -->
+    <!-- ========================================================================= -->
+    <section id="section-flashcard" class="tab-content flex-1 flex-col hidden">
+      <div class="bg-white rounded-2xl p-4 mb-4 border border-slate-200 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+        <div class="flex items-center gap-2">
+          <button onclick="switchFcSubMode('card')" id="sub-fc-card" class="px-5 py-2 rounded-xl text-sm font-black bg-indigo-600 text-white shadow transition">
+            📇 3D 抽認翻卡
+          </button>
+          <button onclick="switchFcSubMode('match')" id="sub-fc-match" class="px-5 py-2 rounded-xl text-sm font-black bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
+            🧩 記憶配對消消樂
+          </button>
+        </div>
+
+        <div id="fc-card-controls" class="flex flex-wrap items-center gap-3">
+          <label class="text-xs text-slate-600 font-bold flex items-center gap-2 cursor-pointer bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200">
+            <input type="checkbox" id="fc-reverse-toggle" onchange="resetFlashcard()" class="w-4 h-4 rounded text-indigo-600 focus:ring-0">
+            <span>反向挑戰（先看釋義猜詞語）</span>
+          </label>
+          <button onclick="shuffleFlashcards()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-black text-slate-700 transition">
+            🔀 隨機打亂
+          </button>
+          <button onclick="filterNeedReview()" id="fc-review-btn" class="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl text-xs font-black text-rose-700 transition">
+            📌 只看待加強 (<span id="fc-weak-count">0</span>)
+          </button>
+        </div>
+      </div>
+
+      <!-- 3D 抽認卡模式 -->
+      <div id="fc-card-view" class="flex-1 flex flex-col items-center justify-center max-w-3xl mx-auto w-full my-4">
+        <div class="w-full flex justify-between items-center text-xs font-bold text-slate-500 mb-3 px-2">
+          <span>範圍：注釋成語卷第 1 頁（共 34 題）</span>
+          <span>進度：<strong id="fc-progress" class="text-indigo-600 font-mono text-lg font-black">1 / 34</strong></span>
+        </div>
+
+        <div class="perspective-1000 w-full min-h-[400px] flex items-center">
+          <div id="flashcard-inner" onclick="flipCurrentCard()" class="w-full min-h-[400px] bg-transparent cursor-pointer relative transform-style-3d transition-transform duration-500 rounded-3xl shadow-xl">
+            <!-- 正面 -->
+            <div class="absolute inset-0 backface-hidden bg-white border-2 border-indigo-200 rounded-3xl p-10 flex flex-col justify-between items-center text-center shadow-lg hover:border-indigo-400 transition">
+              <div class="w-full flex justify-between items-center text-xs text-indigo-600">
+                <span id="fc-front-tag" class="bg-indigo-50 border border-indigo-200 px-3.5 py-1.5 rounded-full font-black">課文詞語</span>
+                <span class="text-slate-400 flex items-center gap-1 font-bold">👆 點擊卡片翻面看解答</span>
+              </div>
+              <div class="my-auto py-6">
+                <div id="fc-front-text" class="text-5xl font-chinese font-black text-slate-800 tracking-wider">直隸省</div>
+                <p id="fc-front-sub" class="text-slate-500 text-sm mt-3 font-bold">出自〈差不多先生傳〉</p>
+              </div>
+              <div class="text-xs text-slate-400 font-bold bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
+                💡 在心中默背出標準注釋，再翻面核對！
+              </div>
+            </div>
+
+            <!-- 反面 -->
+            <div class="absolute inset-0 backface-hidden rotate-y-180 bg-gradient-to-br from-emerald-50 via-white to-emerald-50 border-2 border-emerald-300 rounded-3xl p-10 flex flex-col justify-between items-center text-center shadow-lg">
+              <div class="w-full flex justify-between items-center text-xs text-emerald-700">
+                <span id="fc-back-tag" class="bg-emerald-100 border border-emerald-300 px-3.5 py-1.5 rounded-full font-black">段考標準注釋</span>
+                <span class="text-slate-400 flex items-center gap-1 font-bold">👆 點擊翻回正面</span>
+              </div>
+              <div class="my-auto py-6">
+                <div id="fc-back-title" class="text-base font-chinese text-slate-400 mb-2 font-bold">【直隸省】</div>
+                <div id="fc-back-text" class="text-3xl font-chinese font-black text-emerald-800 leading-relaxed">
+                  清代的一個省分，今河北省大部分。
+                </div>
+              </div>
+              <div class="text-xs text-emerald-700 font-bold bg-white px-4 py-2 rounded-xl border border-emerald-200 shadow-sm">
+                ✨ 課本與段考一字不差標準詳解
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="w-full flex items-center justify-between gap-4 mt-6">
+          <button onclick="prevFlashcard()" class="px-6 py-3.5 rounded-2xl bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-black text-sm shadow-sm transition">
+            ← 上一題
+          </button>
+          <div class="flex items-center gap-3">
+            <button onclick="markFlashcard(false)" class="px-6 py-3.5 rounded-2xl bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-700 font-black text-sm shadow-sm transition">
+              ✕ 還不熟
+            </button>
+            <button onclick="markFlashcard(true)" class="px-6 py-3.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-700 font-black text-sm shadow-sm transition">
+              ✓ 記住了
+            </button>
+          </div>
+          <button onclick="nextFlashcard()" class="px-6 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm shadow-md shadow-indigo-600/30 transition">
+            下一題 →
+          </button>
+        </div>
+      </div>
+
+      <!-- 配對消消樂 -->
+      <div id="fc-match-view" class="flex-1 flex-col max-w-5xl mx-auto w-full my-4 hidden">
+        <div class="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 mb-4 shadow-sm text-sm font-bold">
+          <div>翻牌步數：<span id="match-moves" class="font-mono text-amber-600 text-lg">0</span> 步</div>
+          <div>已成功配對：<span id="match-pairs" class="font-mono text-emerald-600 text-lg">0</span> / 6 組</div>
+          <button onclick="startMemoryMatchGame()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl shadow-sm transition">
+            🔄 重新發牌
+          </button>
+        </div>
+        <div id="memory-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 flex-1"></div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 模組二：國字注音陷阱狂暴戰 (選擇題 + 限時衝榜) -->
+    <!-- ========================================================================= -->
+    <section id="section-quiz" class="tab-content flex-1 flex-col hidden">
+      <!-- 遊戲開始前畫面 -->
+      <div id="quiz-start-screen" class="flex-1 flex flex-col items-center justify-center max-w-2xl mx-auto w-full text-center py-8">
+        <div class="w-24 h-24 bg-amber-100 rounded-3xl flex items-center justify-center mb-5 border-2 border-amber-300 shadow-md">
+          <span class="text-5xl text-amber-500 animate-pulse">⚡</span>
+        </div>
+        <h2 class="text-3xl font-black text-slate-800 mb-2">國字注音陷阱狂暴衝榜</h2>
+        <p class="text-slate-500 text-base mb-8 max-w-lg">
+          精選 100 題致命盲區！包含二聲三聲聲調、同音形近字、破音字陷阱。<br>
+          在時間耗盡前，挑戰最高連擊 Combo 與全班最高得分！
+        </p>
+
+        <div class="bg-white p-5 rounded-3xl border border-slate-200 w-full mb-8 shadow-sm">
+          <div class="text-xs font-black text-slate-400 uppercase tracking-wider mb-4">選擇挑戰時間</div>
+          <div class="grid grid-cols-3 gap-4">
+            <button onclick="selectQuizTime(60)" class="quiz-time-btn py-4 rounded-2xl border-2 border-amber-500 bg-amber-50 text-amber-800 font-black text-lg shadow-sm" data-time="60">
+              60 秒疾速
+            </button>
+            <button onclick="selectQuizTime(90)" class="quiz-time-btn py-4 rounded-2xl border border-slate-200 bg-slate-50 text-slate-600 hover:bg-white font-black text-lg" data-time="90">
+              90 秒標準
+            </button>
+            <button onclick="selectQuizTime(180)" class="quiz-time-btn py-4 rounded-2xl border border-slate-200 bg-slate-50 text-slate-600 hover:bg-white font-black text-lg" data-time="180">
+              180 秒耐力
+            </button>
+          </div>
+        </div>
+
+        <button onclick="startQuizGame()" class="w-full py-5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xl rounded-2xl shadow-lg shadow-orange-500/30 transition transform active:scale-98">
+          🔥 立即開始衝榜！
+        </button>
+
+        <div class="mt-8 flex items-center justify-center gap-8 text-sm text-slate-500 font-bold">
+          <div>🏆 最高紀錄：<span id="quiz-high-score" class="font-mono text-slate-800 text-lg">0</span> 分</div>
+          <div>🔥 最高連擊：<span id="quiz-max-combo" class="font-mono text-slate-800 text-lg">0</span> 連擊</div>
+        </div>
+      </div>
+
+      <!-- 遊戲進行中畫面 -->
+      <div id="quiz-play-screen" class="flex-1 flex-col max-w-4xl mx-auto w-full hidden">
+        <div class="bg-white rounded-2xl p-4 mb-5 border border-slate-200 flex items-center justify-between shadow-sm">
+          <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 bg-slate-100 px-5 py-2.5 rounded-xl border border-slate-200">
+              <span class="text-xl">⏰</span>
+              <span id="quiz-timer" class="font-mono text-3xl font-black text-amber-600">60</span>
+              <span class="text-xs text-slate-500 font-bold">秒</span>
+            </div>
+            <div id="combo-badge" class="hidden flex items-center gap-2 bg-gradient-to-r from-orange-500 to-red-500 px-4 py-2 rounded-xl text-white font-black text-sm animate-bounce shadow">
+              <span>🔥</span> <span id="quiz-combo">0</span> COMBO!
+            </div>
+          </div>
+          <div class="flex items-center gap-4">
+            <div class="text-right">
+              <div class="text-xs font-bold text-slate-400">當前得分</div>
+              <div id="quiz-score" class="font-mono text-3xl font-black text-slate-800">0</div>
+            </div>
+            <button onclick="stopQuizGame()" class="p-2.5 text-slate-400 hover:text-rose-600 rounded-xl hover:bg-slate-100 transition" title="結束挑戰">
+              ⏹️
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white border-2 border-slate-200 rounded-3xl p-8 mb-6 shadow-md flex flex-col items-center justify-center text-center">
+          <div class="text-xs font-black px-4 py-1.5 bg-amber-100 text-amber-800 border border-amber-300 rounded-full mb-3" id="quiz-q-type">
+            聲調陷阱題
+          </div>
+          <div id="quiz-prompt" class="text-4xl sm:text-5xl font-chinese font-black text-slate-800 tracking-wider my-4 leading-normal">
+            「從」容 的注音是？
+          </div>
+          <p id="quiz-hint" class="text-slate-400 text-sm font-bold">注意二聲、三聲或多音字陷阱！</p>
+        </div>
+
+        <div id="quiz-options-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1"></div>
+        <div id="quiz-feedback" class="mt-4 p-3 rounded-2xl text-center text-sm font-bold hidden transition-all"></div>
+      </div>
+
+      <!-- 遊戲結算畫面 -->
+      <div id="quiz-end-screen" class="flex-1 flex flex-col items-center justify-center max-w-lg mx-auto w-full text-center hidden py-10">
+        <div class="w-24 h-24 bg-amber-100 rounded-3xl flex items-center justify-center mb-4 border-2 border-amber-300 shadow">
+          <span class="text-5xl text-amber-500">🏆</span>
+        </div>
+        <h2 class="text-3xl font-black text-slate-800 mb-1">挑戰時間到！</h2>
+        <p class="text-slate-500 text-sm mb-6">段考衝刺戰績出爐：</p>
+
+        <div class="bg-white rounded-3xl p-6 border border-slate-200 w-full mb-6 space-y-4 shadow-sm">
+          <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+            <span class="text-slate-500 font-bold">總得分</span>
+            <span id="final-score" class="font-mono text-3xl font-black text-amber-600">0</span>
+          </div>
+          <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+            <span class="text-slate-500 font-bold">答對題數</span>
+            <span id="final-correct" class="font-mono text-xl font-black text-emerald-600">0 題</span>
+          </div>
+          <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+            <span class="text-slate-500 font-bold">最高連擊</span>
+            <span id="final-combo" class="font-mono text-xl font-black text-orange-600">0 Combo</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-500 font-bold">段考評級</span>
+            <span id="final-rank" class="font-black text-xl text-indigo-600">國文榜首 👑</span>
+          </div>
+        </div>
+
+        <button onclick="resetToQuizStart()" class="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white font-black text-lg rounded-2xl shadow-md transition">
+          🔄 再挑戰一次！
+        </button>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 模組四：課本文意理解深究 (完全按照課本出題 + 手動切換解說) -->
+    <!-- ========================================================================= -->
+    <section id="section-comprehension" class="tab-content flex-1 flex-col hidden">
+      <div class="max-w-4xl mx-auto w-full flex-1 flex flex-col justify-start">
+        
+        <!-- 頂部資訊與操作列 -->
+        <div class="bg-white rounded-2xl px-6 py-4 border border-slate-200 shadow-sm mb-5 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">📖</span>
+            <div>
+              <h3 class="text-lg font-black text-slate-800">課本文意深究與段考解說模式</h3>
+              <p class="text-xs text-slate-500 font-bold">含〈差不多先生傳〉、〈論語選〉、〈那默默的一群〉、語文常識二</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2.5">
+            <select id="comp-lesson-filter" onchange="onCompFilterChange()" class="bg-slate-50 border border-slate-300 text-slate-700 text-xs sm:text-sm font-bold rounded-xl px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 outline-none">
+              <option value="all">📚 全部課文 (80題)</option>
+              <option value="l04">④ 差不多先生傳 (20題)</option>
+              <option value="l05">⑤ 論語選 (20題)</option>
+              <option value="l06">⑥ 那默默的一群 (20題)</option>
+              <option value="lang">📖 語常二：閱讀與檢索 (20題)</option>
+            </select>
+            <span class="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono text-xs sm:text-sm font-bold">
+              第 <strong id="comp-q-num" class="text-indigo-900 font-black">1</strong> / <span id="comp-total-num">80</span> 題
+            </span>
+            <button onclick="prevCompQuestion()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-bold rounded-xl transition">
+              ⬅️ 上一題
+            </button>
+            <button onclick="randomCompQuestion()" class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black rounded-xl shadow-sm transition flex items-center gap-1">
+              🎲 隨機抽題
+            </button>
+          </div>
+        </div>
+
+        <!-- 題目主卡片 -->
+        <div class="bg-white rounded-3xl p-8 border-2 border-slate-200 shadow-md mb-5">
+          <div class="flex items-center gap-2 mb-4">
+            <span id="comp-lesson-tag" class="px-3.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-xs font-black">
+              差不多先生傳 • 寫作手法
+            </span>
+            <span class="text-xs text-slate-400 font-bold">請點選選項作答，作答後展開解析，老師解說完畢點「下一題」切換</span>
+          </div>
+
+          <div id="comp-prompt" class="text-2xl sm:text-3xl font-chinese font-black text-slate-800 leading-relaxed mb-6">
+            文章開頭胡適說差不多先生是「各省各縣各村人氏」，作者在此安排的用意為何？
+          </div>
+
+          <!-- 四個大選項 (A, B, C, D) -->
+          <div id="comp-options-grid" class="grid grid-cols-1 gap-3.5 mb-6">
+            <!-- 由 JS 動態生成 -->
+          </div>
+
+          <!-- 課文深度解析看板 (答題後展開，不點下一題絕不跳轉！) -->
+          <div id="comp-explanation-card" class="hidden bg-slate-50 border-2 border-indigo-200 rounded-2xl p-6 transition-all mt-4">
+            <div class="flex items-center justify-between border-b border-indigo-100 pb-3 mb-4">
+              <span class="text-sm font-black text-indigo-900 flex items-center gap-2">
+                <span>💡</span> 課文深度意旨剖析與段考重點
+              </span>
+              <span id="comp-result-status" class="px-3 py-1 rounded-lg text-xs font-black"></span>
+            </div>
+
+            <div class="space-y-3 text-slate-700 text-sm leading-relaxed">
+              <div>
+                <strong class="text-indigo-950 font-bold block mb-1">【文章核心與主旨】</strong>
+                <p id="comp-exp-main" class="text-slate-600 bg-white p-3 rounded-xl border border-slate-200"></p>
+              </div>
+              <div>
+                <strong class="text-amber-900 font-bold block mb-1">【段考關鍵提示】</strong>
+                <p id="comp-exp-exam" class="text-slate-600 bg-white p-3 rounded-xl border border-slate-200"></p>
+              </div>
+            </div>
+
+            <!-- 下一題按鈕 (只有老師點擊才會跳，讓老師充分解說) -->
+            <div class="mt-6 flex justify-end">
+              <button onclick="nextCompQuestion()" class="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base rounded-2xl shadow-md shadow-indigo-600/30 transition flex items-center gap-2 active:scale-95">
+                <span>解說完畢，下一題</span> <span>➜</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 701 班級抽籤轉盤彈窗 (Lucky Wheel Modal) -->
+  <!-- ========================================================================= -->
+  <div id="wheel-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white border-2 border-amber-300 rounded-3xl max-w-xl w-full p-6 shadow-2xl relative flex flex-col items-center">
+      
+      <!-- 關閉按鈕 -->
+      <button onclick="closeWheelModal()" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-sm">
+        ✕
+      </button>
+
+      <div class="text-center mb-3">
+        <h3 class="text-2xl font-black bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent flex items-center justify-center gap-2">
+          <span>🎯</span> 701 課堂點名大轉盤
+        </h3>
+        <p class="text-xs text-slate-400 font-bold">全班共 26 位同學 • 隨機抽選上台作答</p>
+      </div>
+
+      <!-- 轉盤 Canvas 容器 -->
+      <div class="relative my-2 w-[340px] h-[340px] flex items-center justify-center">
+        <!-- 頂部指針 -->
+        <div class="absolute -top-3 z-20 text-red-600 text-4xl filter drop-shadow">
+          ▼
+        </div>
+        <canvas id="wheel-canvas" width="340" height="340" class="rounded-full shadow-xl border-4 border-amber-400 wheel-glow"></canvas>
+
+        <!-- 中心 SPIN 按鈕 -->
+        <button onclick="spinStudentWheel()" id="spin-btn" class="absolute z-20 w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 text-white font-black text-sm shadow-xl border-4 border-white flex items-center justify-center hover:scale-105 active:scale-95 transition">
+          SPIN
+        </button>
+      </div>
+
+      <!-- 抽中結果展示框 -->
+      <div id="wheel-result-box" class="w-full mt-3 p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 text-center hidden animate-bounce">
+        <span class="text-xs font-bold text-amber-800">🎉 幸運中籤同學：</span>
+        <div id="wheel-winner-text" class="text-3xl font-black text-amber-900 my-1 font-chinese">
+          17 號 游彧喆
+        </div>
+
+        <!-- 老師專屬雙模式操作按鈕 -->
+        <div class="grid grid-cols-2 gap-2.5 mt-3">
+          <!-- 按鈕一：抽到的踢出 -->
+          <button onclick="handleWinnerAction('kick')" class="py-2.5 px-3 bg-rose-500 hover:bg-rose-600 active:scale-95 text-white rounded-xl text-xs sm:text-sm font-black shadow-md flex items-center justify-center gap-1.5 transition" title="確認上台，從名單踢出不再重複抽">
+            <span>❌</span> 抽到的踢出 (抽下一位)
+          </button>
+          <!-- 按鈕二：不用踢出可以下一位 (換隊) -->
+          <button onclick="handleWinnerAction('keep')" class="py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs sm:text-sm font-black shadow-md flex items-center justify-center gap-1.5 transition" title="抽到同隊換人，保留名單換抽下一位">
+            <span>🔄</span> 不踢出，換抽下一位
+          </button>
+        </div>
+
+        <!-- 派至紅藍手寫板 -->
+        <div class="flex items-center justify-center gap-2 mt-2.5 pt-2 border-t border-amber-200">
+          <button onclick="assignToPkAndKick('p1')" class="flex-1 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded-lg text-xs font-black transition">
+            🔴 派至紅隊手寫 (並踢出)
+          </button>
+          <button onclick="assignToPkAndKick('p2')" class="flex-1 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-lg text-xs font-black transition">
+            🔵 派至藍隊手寫 (並踢出)
+          </button>
+        </div>
+      </div>
+
+      <!-- 底部控制項 -->
+      <div class="w-full flex items-center justify-between text-xs text-slate-500 mt-4 px-2">
+        <span class="text-slate-500 font-mono">剩餘待抽人數：<strong id="wheel-remain-count" class="text-amber-600 text-sm font-black">26</strong> 位</span>
+        <button onclick="resetWheelStudents()" class="px-3 py-1.5 bg-slate-100 hover:bg-amber-100 border border-slate-300 text-slate-700 hover:text-amber-800 rounded-xl text-xs font-bold transition flex items-center gap-1">
+          <span>🔄</span> 重置全班名單 (26人)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 頁腳 -->
+  <footer class="bg-white border-t border-slate-200 py-3 text-center text-xs text-slate-400 font-bold">
+    國中段考複習遊戲系統 • 108 課綱康軒版國一上第二次段考 • 新北市立錦和高中 701 專用
+  </footer>
+
+  <!-- ========================================================================= -->
+  <!-- 核心資料庫與遊戲邏輯 SCRIPT -->
+  <!-- ========================================================================= -->
+  <script>
+    /* =========================================================================
+     * 701 班級名冊 (取自 701名單.docx)
+     * ========================================================================= */
+    const studentList701 = [
+      { no: 1, name: "吳宓慈" },
+      { no: 2, name: "呂亭慧" },
+      { no: 3, name: "李安蕾" },
+      { no: 4, name: "李悅華" },
+      { no: 5, name: "林和萱" },
+      { no: 6, name: "洪子喬" },
+      { no: 7, name: "胡修郥" },
+      { no: 8, name: "楊舒喻" },
+      { no: 9, name: "葉美琳" },
+      { no: 10, name: "林雨恩" },
+      { no: 11, name: "林晉宇" },
+      { no: 12, name: "林雋翔" },
+      { no: 13, name: "高于祐" },
+      { no: 14, name: "高柏崧" },
+      { no: 15, name: "許家寅" },
+      { no: 16, name: "陳裕翔" },
+      { no: 17, name: "游彧喆" },
+      { no: 18, name: "黄子恩" },
+      { no: 19, name: "黄睿翔" },
+      { no: 20, name: "葉天瑞" },
+      { no: 21, name: "詹维宗" },
+      { no: 22, name: "劉程偉" },
+      { no: 23, name: "蔡丞硯" },
+      { no: 24, name: "蔡定叡" },
+      { no: 25, name: "蔡璿寬" },
+      { no: 26, name: "鍾鎮宇" }
+    ];
+
+    /* =========================================================================
+     * 1. 注釋題庫 (注釋成語卷第 1 頁 34 題)
+     * ========================================================================= */
+    const annotationsData = [
+      { id: 1, term: "直隸省", def: "清代的一個省分，今河北省大部分。", lesson: "差不多先生傳" },
+      { id: 2, term: "錢鋪", def: "舊式的銀行，也稱「錢莊」。", lesson: "差不多先生傳" },
+      { id: 3, term: "夥計", def: "商店中雇用的人。", lesson: "差不多先生傳" },
+      { id: 4, term: "掌櫃的", def: "總管店務的人。", lesson: "差不多先生傳" },
+      { id: 5, term: "賠小心", def: "低聲下氣的道歉。", lesson: "差不多先生傳" },
+      { id: 6, term: "「不上」一點鐘", def: "不到。", lesson: "差不多先生傳" },
+      { id: 7, term: "一命嗚呼", def: "意指死亡。", lesson: "差不多先生傳" },
+      { id: 8, term: "一命「嗚呼」", def: "表示悲哀的感嘆詞，借指「人死」。", lesson: "差不多先生傳" },
+      { id: 9, term: "法號", def: "佛教徒受戒時取的名字，或是死後所加的名號。", lesson: "差不多先生傳" },
+      { id: 10, term: "圓通大師", def: "指智慧圓融，通達事理的高僧，此暗寓諷刺的意味。", lesson: "差不多先生傳" },
+      { id: 11, term: "「子」曰", def: "對老師的尊稱，此指孔子。", lesson: "論語選" },
+      { id: 12, term: "時習", def: "時常溫習。", lesson: "論語選" },
+      { id: 13, term: "學而時習「之」", def: "代詞，它，此指已經學到的內容。", lesson: "論語選" },
+      { id: 14, term: "不亦「說」乎", def: "通「悅」，喜悅。", lesson: "論語選" },
+      { id: 15, term: "慍", def: "怨恨、生氣。", lesson: "論語選" },
+      { id: 16, term: "不亦「君子」乎", def: "此指有道德修養的人。", lesson: "論語選" },
+      { id: 17, term: "三人行", def: "三人同行，也就是三個人相處在一起。", lesson: "論語選" },
+      { id: 18, term: "必有我「師」焉", def: "指可以效法或作為警惕的對象。", lesson: "論語選" },
+      { id: 19, term: "必有我師「焉」", def: "句末助詞，無義。", lesson: "論語選" },
+      { id: 20, term: "有「一言」而可以終身行之者乎", def: "一字。", lesson: "論語選" },
+      { id: 21, term: "「其」恕乎", def: "語助詞，表示猜測的語氣，相當於白話的「可能」、「大概」。", lesson: "論語選" },
+      { id: 22, term: "其「恕」乎", def: "推己及人，即以同理心對待他人。", lesson: "論語選" },
+      { id: 23, term: "疆土", def: "國家的領土。", lesson: "那默默的一群" },
+      { id: 24, term: "巷弄", def: "泛稱窄小的街道。", lesson: "那默默的一群" },
+      { id: 25, term: "巷「弄」", def: "小巷。", lesson: "那默默的一群" },
+      { id: 26, term: "防區", def: "軍隊負責防守的地區，此指道路清潔人員負責清掃的範圍。", lesson: "那默默的一群" },
+      { id: 27, term: "一絲不苟", def: "一點也不草率。", lesson: "那默默的一群" },
+      { id: 28, term: "一絲不「苟」", def: "草率、隨便。", lesson: "那默默的一群" },
+      { id: 29, term: "文雅", def: "溫和有禮、不粗俗。", lesson: "那默默的一群" },
+      { id: 30, term: "不厭其煩", def: "不嫌麻煩。", lesson: "那默默的一群" },
+      { id: 31, term: "泥濘", def: "雨後地上水與土混雜的樣子，此指爛泥巴。", lesson: "那默默的一群" },
+      { id: 32, term: "敦厚", def: "寬宏厚道。", lesson: "那默默的一群" },
+      { id: 33, term: "風範", def: "典範、楷模。", lesson: "那默默的一群" },
+      { id: 34, term: "人物", def: "此指對社會有貢獻的人。", lesson: "那默默的一群" }
+    ];
+
+    /* =========================================================================
+     * 2. 國字注音 100 題 (PK 賽與狂暴戰)
+     * ========================================================================= */
+    const pkQuestions = [
+      { id: 1, type: "寫出注音", prefix: "", target: "差", suffix: "異", ans: "ㄔㄚ", hint: "差異讀 ㄔㄚ，差遣讀 ㄔㄞ，參差讀 ㄘ", distractors: ["ㄔㄞ", "ㄘ", "ㄔㄚˋ"], isTone: true },
+      { id: 2, type: "寫出注音", prefix: "", target: "差", suffix: "遣", ans: "ㄔㄞ", hint: "差遣讀 ㄔㄞ，不可讀 ㄔㄚ", distractors: ["ㄔㄚ", "ㄘ", "ㄔㄞˋ"], isTone: true },
+      { id: 3, type: "寫出注音", prefix: "參", target: "差", suffix: "", ans: "ㄘ", hint: "參差讀 ㄘ，長短不齊貌", distractors: ["ㄔㄚ", "ㄔㄞ", "ㄘˋ"], isTone: true },
+      { id: 4, type: "寫出注音", prefix: "", target: "相", suffix: "貌", ans: "ㄒㄧㄤˋ", hint: "容貌、相片讀去聲 ㄒㄧㄤˋ", distractors: ["ㄒㄧㄤ", "ㄒㄧㄤˇ", "ㄒㄧㄤˋ"], isTone: true },
+      { id: 5, type: "寫出注音", prefix: "", target: "相", suffix: "夫教子", ans: "ㄒㄧㄤˋ", hint: "輔佐、相助之意讀去聲 ㄒㄧㄤˋ", distractors: ["ㄒㄧㄤ", "ㄒㄧㄤˇ", "ㄒㄧㄤˋ"], isTone: true },
+      { id: 6, type: "寫出注音", prefix: "守望", target: "相", suffix: "助", ans: "ㄒㄧㄤ", hint: "互相讀平聲 ㄒㄧㄤ", distractors: ["ㄒㄧㄤˋ", "ㄒㄧㄤˇ", "ㄒㄧㄤ"], isTone: true },
+      { id: 7, type: "寫出國字", prefix: "搖頭晃", target: "ㄋㄠˇ", suffix: "", ans: "腦", hint: "腦袋、首腦為月部「腦」", distractors: ["惱", "瑙", "淖"], isTone: false },
+      { id: 8, type: "寫出國字", prefix: "", target: "ㄋㄠˇ", suffix: "羞成怒", ans: "惱", hint: "氣惱、煩惱為心部「惱」", distractors: ["腦", "瑙", "鬧"], isTone: false },
+      { id: 9, type: "寫出國字", prefix: "自尋煩", target: "ㄋㄠˇ", suffix: "", ans: "惱", hint: "煩惱為心部「惱」", distractors: ["腦", "瑙", "鬧"], isTone: false },
+      { id: 10, type: "寫出注音", prefix: "直", target: "隸", suffix: "省", ans: "ㄌㄧˋ", hint: "隸屬讀去聲 ㄌㄧˋ", distractors: ["ㄌㄧˇ", "ㄌㄜˋ", "ㄉㄧˋ"], isTone: false },
+      { id: 11, type: "寫出注音", prefix: "", target: "陝", suffix: "西", ans: "ㄕㄢˇ", hint: "陝西讀上聲 ㄕㄢˇ，勿與峽混", distractors: ["ㄒㄧㄚˊ", "ㄕㄢ", "ㄕㄢˋ"], isTone: true },
+      { id: 12, type: "寫出注音", prefix: "錢", target: "鋪", suffix: "", ans: "ㄆㄨˋ", hint: "店鋪讀去聲 ㄆㄨˋ", distractors: ["ㄆㄨ", "ㄆㄨˇ", "ㄅㄨˋ"], isTone: true },
+      { id: 13, type: "寫出注音", prefix: "", target: "夥", suffix: "計", ans: "ㄏㄨㄛˇ", hint: "夥計讀上聲 ㄏㄨㄛˇ", distractors: ["ㄏㄨㄛ", "ㄏㄨㄛˋ", "ㄎㄜˇ"], isTone: true },
+      { id: 14, type: "寫出國字", prefix: "掌", target: "ㄍㄨㄟˋ", suffix: "的", ans: "櫃", hint: "掌櫃為木部「櫃」", distractors: ["匱", "潰", "簣"], isTone: false },
+      { id: 15, type: "寫出國字", prefix: "翻箱倒", target: "ㄍㄨㄟˋ", suffix: "", ans: "櫃", hint: "箱櫃為木部「櫃」", distractors: ["匱", "潰", "簣"], isTone: false },
+      { id: 16, type: "寫出國字", prefix: "", target: "ㄎㄨㄟˋ", suffix: "乏", ans: "匱", hint: "匱乏為匚部「匱」", distractors: ["櫃", "潰", "簣"], isTone: false },
+      { id: 17, type: "寫出國字", prefix: "功虧一", target: "ㄎㄨㄟˋ", suffix: "", ans: "簣", hint: "九仞之山功虧一簣，竹部「簣」", distractors: ["匱", "櫃", "潰"], isTone: false },
+      { id: 18, type: "寫出國字", prefix: "", target: "ㄎㄨㄟˋ", suffix: "堤", ans: "潰", hint: "決堤崩潰為水部「潰」", distractors: ["匱", "櫃", "簣"], isTone: false },
+      { id: 19, type: "寫出國字", prefix: "", target: "ㄎㄨㄟˋ", suffix: "不成軍", ans: "潰", hint: "潰敗為水部「潰」", distractors: ["匱", "櫃", "簣"], isTone: false },
+      { id: 20, type: "寫出國字", prefix: "", target: "ㄆㄟˊ", suffix: "罪", ans: "賠", hint: "賠罪、賠償為貝部「賠」", distractors: ["陪", "培", "焙"], isTone: false },
+      { id: 21, type: "寫出國字", prefix: "", target: "ㄆㄟˊ", suffix: "本生意", ans: "賠", hint: "賠本為貝部「賠」", distractors: ["陪", "培", "焙"], isTone: false },
+      { id: 22, type: "寫出國字", prefix: "", target: "ㄆㄟˊ", suffix: "償", ans: "賠", hint: "賠償為貝部「賠」", distractors: ["陪", "培", "焙"], isTone: false },
+      { id: 23, type: "寫出國字", prefix: "", target: "ㄆㄟˊ", suffix: "伴", ans: "陪", hint: "陪伴為阜部「陪」", distractors: ["賠", "培", "焙"], isTone: false },
+      { id: 24, type: "寫出國字", prefix: "栽", target: "ㄆㄟˊ", suffix: "", ans: "培", hint: "栽培為土部「培」", distractors: ["賠", "陪", "焙"], isTone: false },
+      { id: 25, type: "寫出國字", prefix: "烘", target: "ㄅㄟˋ", suffix: "", ans: "焙", hint: "烘焙為火部「焙」", distractors: ["培", "陪", "賠"], isTone: false },
+      { id: 26, type: "寫出注音", prefix: "只多一小", target: "撇", suffix: "", ans: "ㄆㄧㄝˇ", hint: "書法筆劃讀上聲 ㄆㄧㄝˇ", distractors: ["ㄆㄧㄝ", "ㄆㄧㄝˋ", "ㄅㄧㄝˇ"], isTone: true },
+      { id: 27, type: "寫出注音", prefix: "", target: "撇", suffix: "在一邊", ans: "ㄆㄧㄝ", hint: "丟棄、擱置讀陰平 ㄆㄧㄝ", distractors: ["ㄆㄧㄝˇ", "ㄆㄧㄝˋ", "ㄅㄧㄝ"], isTone: true },
+      { id: 28, type: "寫出注音", prefix: "匆匆一", target: "瞥", suffix: "", ans: "ㄆㄧㄝ", hint: "目光短暫掠過讀陰平 ㄆㄧㄝ", distractors: ["ㄆㄧㄝˇ", "ㄅㄧㄝ", "ㄆㄧㄝˋ"], isTone: true },
+      { id: 29, type: "寫出注音", prefix: "", target: "憋", suffix: "氣", ans: "ㄅㄧㄝ", hint: "抑止呼吸讀陰平 ㄅㄧㄝ", distractors: ["ㄅㄧㄝˇ", "ㄅㄧㄝˋ", "ㄆㄧㄝ"], isTone: true },
+      { id: 30, type: "寫出注音", prefix: "", target: "彆", suffix: "扭", ans: "ㄅㄧㄝˋ", hint: "彆扭讀去聲 ㄅㄧㄝˋ", distractors: ["ㄅㄧㄝ", "ㄅㄧㄝˇ", "ㄅㄧㄝˊ"], isTone: true },
+      { id: 31, type: "寫出注音", prefix: "", target: "從", suffix: "容", ans: "ㄘㄨㄥ", hint: "從容不迫讀陰平 ㄘㄨㄥ，勿讀二聲", distractors: ["ㄘㄨㄥˊ", "ㄗㄨㄥˋ", "ㄘㄨㄥˇ"], isTone: true },
+      { id: 32, type: "寫出注音", prefix: "", target: "從", suffix: "今以後", ans: "ㄘㄨㄥˊ", hint: "自從讀陽平 ㄘㄨㄥˊ", distractors: ["ㄘㄨㄥ", "ㄗㄨㄥˋ", "ㄘㄨㄥˇ"], isTone: true },
+      { id: 33, type: "寫出注音", prefix: "隨", target: "從", suffix: "", ans: "ㄗㄨㄥˋ", hint: "侍從、隨從讀去聲 ㄗㄨㄥˋ", distractors: ["ㄘㄨㄥˊ", "ㄘㄨㄥ", "ㄗㄨㄥ"], isTone: true },
+      { id: 34, type: "寫出注音", prefix: "汪", target: "大", suffix: "夫", ans: "ㄉㄞˋ", hint: "大夫（醫生）讀 ㄉㄞˋ", distractors: ["ㄉㄚˋ", "ㄉㄞ", "ㄉㄚ"], isTone: true },
+      { id: 35, type: "寫出注音", prefix: "汪大", target: "夫", suffix: "", ans: "‧ㄈㄨ", hint: "大夫之夫讀輕聲 ‧ㄈㄨ", distractors: ["ㄈㄨ", "ㄈㄨˊ", "ㄈㄨˋ"], isTone: true },
+      { id: 36, type: "寫出注音", prefix: "", target: "法", suffix: "子", ans: "ㄈㄚˊ", hint: "法子（辦法）讀陽平 ㄈㄚˊ", distractors: ["ㄈㄚˇ", "ㄈㄚˋ", "ㄈㄚ"], isTone: true },
+      { id: 37, type: "寫出注音", prefix: "", target: "法", suffix: "律", ans: "ㄈㄚˇ", hint: "法律讀上聲 ㄈㄚˇ", distractors: ["ㄈㄚˊ", "ㄈㄚˋ", "ㄈㄚ"], isTone: true },
+      { id: 38, type: "寫出國字", prefix: "", target: "ㄨ", suffix: "呼", ans: "嗚", hint: "嗚呼為口部「嗚」", distractors: ["鳴", "烏", "塢"], isTone: false },
+      { id: 39, type: "寫出國字", prefix: "雞", target: "ㄇㄧㄥˊ", suffix: "犬吠", ans: "鳴", hint: "鳥鳴為鳥部「鳴」", distractors: ["嗚", "銘", "冥"], isTone: false },
+      { id: 40, type: "寫出注音", prefix: "不亦", target: "說", suffix: "乎", ans: "ㄩㄝˋ", hint: "通「悅」，喜悅讀 ㄩㄝˋ", distractors: ["ㄕㄨㄛ", "ㄕㄨㄟˋ", "ㄩㄝ"], isTone: true },
+      { id: 41, type: "寫出注音", prefix: "不亦", target: "樂", suffix: "乎", ans: "ㄌㄜˋ", hint: "快樂讀 ㄌㄜˋ", distractors: ["ㄩㄝˋ", "ㄧㄠˋ", "ㄌㄜ"], isTone: true },
+      { id: 42, type: "寫出注音", prefix: "音", target: "樂", suffix: "", ans: "ㄩㄝˋ", hint: "樂曲讀 ㄩㄝˋ", distractors: ["ㄌㄜˋ", "ㄧㄠˋ", "ㄩㄝ"], isTone: true },
+      { id: 43, type: "寫出注音", prefix: "仁者", target: "樂", suffix: "山", ans: "ㄧㄠˋ", hint: "愛好、喜好讀 ㄧㄠˋ", distractors: ["ㄌㄜˋ", "ㄩㄝˋ", "ㄧㄠ"], isTone: true },
+      { id: 44, type: "寫出國字", prefix: "", target: "ㄩㄣˋ", suffix: "怒", ans: "慍", hint: "慍怒為心部「慍」", distractors: ["醞", "蘊", "溫"], isTone: false },
+      { id: 45, type: "寫出國字", prefix: "", target: "ㄩㄣˋ", suffix: "釀", ans: "醞", hint: "醞釀為酉部「醞」", distractors: ["慍", "蘊", "溫"], isTone: false },
+      { id: 46, type: "寫出國字", prefix: "", target: "ㄩㄣˋ", suffix: "藏", ans: "蘊", hint: "蘊藏為艸部「蘊」", distractors: ["醞", "慍", "溫"], isTone: false },
+      { id: 47, type: "寫出國字", prefix: "文化底", target: "ㄩㄣˋ", suffix: "", ans: "蘊", hint: "底蘊為艸部「蘊」", distractors: ["醞", "慍", "溫"], isTone: false },
+      { id: 48, type: "寫出國字", prefix: "", target: "ㄨㄣ", suffix: "故知新", ans: "溫", hint: "溫習為水部「溫」", distractors: ["瘟", "蘊", "慍"], isTone: false },
+      { id: 49, type: "寫出國字", prefix: "", target: "ㄨㄣ", suffix: "文儒雅", ans: "溫", hint: "溫文為水部「溫」", distractors: ["瘟", "蘊", "慍"], isTone: false },
+      { id: 50, type: "寫出國字", prefix: "", target: "ㄨㄣ", suffix: "疫", ans: "瘟", hint: "瘟疫為疒部「瘟」", distractors: ["溫", "蘊", "慍"], isTone: false },
+      { id: 51, type: "寫出國字", prefix: "", target: "ㄗㄜˊ", suffix: "善固執", ans: "擇", hint: "抉擇為手部「擇」", distractors: ["澤", "繹", "驛"], isTone: false },
+      { id: 52, type: "寫出國字", prefix: "沼", target: "ㄗㄜˊ", suffix: "", ans: "澤", hint: "沼澤為水部「澤」", distractors: ["擇", "繹", "驛"], isTone: false },
+      { id: 53, type: "寫出國字", prefix: "恩", target: "ㄗㄜˊ", suffix: "", ans: "澤", hint: "恩澤為水部「澤」", distractors: ["擇", "繹", "驛"], isTone: false },
+      { id: 54, type: "寫出國字", prefix: "翻", target: "ㄧˋ", suffix: "", ans: "譯", hint: "翻譯為言部「譯」", distractors: ["繹", "驛", "澤"], isTone: false },
+      { id: 55, type: "寫出國字", prefix: "絡", target: "ㄧˋ", suffix: "", ans: "繹", hint: "絡繹不絕為糸部「繹」", distractors: ["譯", "驛", "澤"], isTone: false },
+      { id: 56, type: "寫出國字", prefix: "演", target: "ㄧˋ", suffix: "", ans: "繹", hint: "演繹為糸部「繹」", distractors: ["譯", "驛", "澤"], isTone: false },
+      { id: 57, type: "寫出國字", prefix: "", target: "ㄧˋ", suffix: "站", ans: "驛", hint: "驛站為馬部「驛」", distractors: ["譯", "繹", "澤"], isTone: false },
+      { id: 58, type: "寫出注音", prefix: "引以為", target: "戒", suffix: "", ans: "ㄐㄧㄝˋ", hint: "懲戒讀去聲 ㄐㄧㄝˋ", distractors: ["ㄐㄧㄝˇ", "ㄐㄧㄝ", "ㄐㄧㄝˊ"], isTone: false },
+      { id: 59, type: "寫出注音", prefix: "曲", target: "阜", suffix: "市", ans: "ㄈㄨˋ", hint: "曲阜讀去聲 ㄈㄨˋ", distractors: ["ㄈㄨˇ", "ㄅㄛˊ", "ㄈㄨ"], isTone: true },
+      { id: 60, type: "寫出國字", prefix: "不", target: "ㄒㄧㄡˇ", suffix: "", ans: "朽", hint: "不朽為木部「朽」", distractors: ["巧", "坊", "杇"], isTone: false },
+      { id: 61, type: "寫出國字", prefix: "切", target: "ㄘㄨㄛ", suffix: "", ans: "磋", hint: "切磋琢磨為石部「磋」", distractors: ["蹉", "差", "搓"], isTone: false },
+      { id: 62, type: "寫出國字", prefix: "", target: "ㄐㄧㄤ", suffix: "土", ans: "疆", hint: "疆土為田部「疆」", distractors: ["韁", "僵", "殭"], isTone: false },
+      { id: 63, type: "寫出國字", prefix: "脫", target: "ㄐㄧㄤ", suffix: "野馬", ans: "韁", hint: "脫韁野馬為革部「韁」", distractors: ["疆", "僵", "殭"], isTone: false },
+      { id: 64, type: "寫出國字", prefix: "", target: "ㄐㄧㄤ", suffix: "硬", ans: "僵", hint: "僵硬為人部「僵」", distractors: ["殭", "疆", "韁"], isTone: false },
+      { id: 65, type: "寫出國字", prefix: "", target: "ㄐㄧㄤ", suffix: "屍", ans: "殭", hint: "殭屍為歹部「殭」", distractors: ["僵", "疆", "韁"], isTone: false },
+      { id: 66, type: "寫出國字", prefix: "沉", target: "ㄇㄛˋ", suffix: "寡言", ans: "默", hint: "沉默為黑部「默」", distractors: ["墨", "歿", "莫"], isTone: false },
+      { id: 67, type: "寫出國字", prefix: "", target: "ㄇㄛˋ", suffix: "寫", ans: "默", hint: "默寫為黑部「默」", distractors: ["墨", "歿", "莫"], isTone: false },
+      { id: 68, type: "寫出國字", prefix: "潛移", target: "ㄇㄛˋ", suffix: "化", ans: "默", hint: "潛移默化為黑部「默」", distractors: ["墨", "歿", "莫"], isTone: false },
+      { id: 69, type: "寫出國字", prefix: "筆", target: "ㄇㄛˋ", suffix: "紙硯", ans: "墨", hint: "文房四寶為土部「墨」", distractors: ["默", "歿", "莫"], isTone: false },
+      { id: 70, type: "寫出國字", prefix: "胸無點", target: "ㄇㄛˋ", suffix: "", ans: "墨", hint: "胸無點墨為土部「墨」", distractors: ["默", "歿", "莫"], isTone: false },
+      { id: 71, type: "寫出注音", prefix: "巷", target: "弄", suffix: "", ans: "ㄌㄨㄥˋ", hint: "小巷讀 ㄌㄨㄥˋ，玩弄讀 ㄋㄨㄥˋ", distractors: ["ㄋㄨㄥˋ", "ㄌㄨㄥˊ", "ㄋㄨㄥˊ"], isTone: true },
+      { id: 72, type: "寫出注音", prefix: "", target: "予", suffix: "以清除", ans: "ㄩˇ", hint: "予以讀上聲 ㄩˇ，不可讀二聲", distractors: ["ㄩˊ", "ㄩˋ", "ㄩ"], isTone: true },
+      { id: 73, type: "寫出國字", prefix: "一絲不", target: "ㄍㄡˇ", suffix: "", ans: "苟", hint: "一絲不苟為艸部句「苟」", distractors: ["荀", "筍", "敬"], isTone: false },
+      { id: 74, type: "寫出國字", prefix: "", target: "ㄍㄡˇ", suffix: "延殘喘", ans: "苟", hint: "苟且為艸部句「苟」", distractors: ["荀", "筍", "敬"], isTone: false },
+      { id: 75, type: "寫出國字", prefix: "", target: "ㄒㄩㄣˊ", suffix: "子", ans: "荀", hint: "荀子為艸部旬「荀」", distractors: ["苟", "筍", "敬"], isTone: false },
+      { id: 76, type: "寫出國字", prefix: "雨後春", target: "ㄙㄨㄣˇ", suffix: "", ans: "筍", hint: "竹筍為竹部「筍」", distractors: ["荀", "苟", "笱"], isTone: false },
+      { id: 77, type: "寫出國字", prefix: "", target: "ㄐㄩㄝˊ", suffix: "不撿便宜", ans: "絕", hint: "絕不為糸部「絕」", distractors: ["決", "抉", "訣"], isTone: false },
+      { id: 78, type: "寫出國字", prefix: "判", target: "ㄐㄩㄝˊ", suffix: "", ans: "決", hint: "判決為水部「決」", distractors: ["絕", "抉", "訣"], isTone: false },
+      { id: 79, type: "寫出注音", prefix: "", target: "便", suffix: "宜", ans: "ㄆㄧㄢˊ", hint: "便宜讀陽平 ㄆㄧㄢˊ", distractors: ["ㄅㄧㄢˋ", "ㄆㄧㄢ", "ㄅㄧㄢ"], isTone: true },
+      { id: 80, type: "寫出注音", prefix: "婦道人", target: "家", suffix: "", ans: "‧ㄐㄧㄚ", hint: "詞尾讀輕聲 ‧ㄐㄧㄚ", distractors: ["ㄐㄧㄚ", "ㄐㄧㄚˊ", "ㄐㄧㄚˇ"], isTone: true },
+      { id: 81, type: "寫出國字", prefix: "", target: "ㄙㄨˋ", suffix: "膠袋子", ans: "塑", hint: "塑膠為土部「塑」", distractors: ["愫", "溯", "訴"], isTone: false },
+      { id: 82, type: "寫出國字", prefix: "", target: "ㄅㄧㄢˋ", suffix: "地", ans: "遍", hint: "遍地開花為辵部「遍」", distractors: ["編", "便", "篇"], isTone: false },
+      { id: 83, type: "寫出國字", prefix: "不", target: "ㄆㄧㄢ", suffix: "不倚", ans: "偏", hint: "偏頗為人部「偏」", distractors: ["篇", "翩", "編"], isTone: false },
+      { id: 84, type: "寫出國字", prefix: "", target: "ㄆㄧㄢ ㄆㄧㄢ", suffix: "起舞", ans: "翩", hint: "翩翩為羽部「翩」", distractors: ["偏", "篇", "編"], isTone: false },
+      { id: 85, type: "寫出國字", prefix: "一", target: "ㄆㄧㄢ", suffix: "論文", ans: "篇", hint: "篇章為竹部「篇」", distractors: ["偏", "翩", "編"], isTone: false },
+      { id: 86, type: "寫出國字", prefix: "彙", target: "ㄅㄧㄢ", suffix: "", ans: "編", hint: "編彙為糸部「編」", distractors: ["篇", "偏", "翩"], isTone: false },
+      { id: 87, type: "寫出國字", prefix: "", target: "ㄅㄧㄢ", suffix: "蝠", ans: "蝙", hint: "蝙蝠為虫部「蝙」", distractors: ["編", "偏", "篇"], isTone: false },
+      { id: 88, type: "寫出注音", prefix: "", target: "惹", suffix: "人厭", ans: "ㄖㄜˇ", hint: "惹人厭讀上聲 ㄖㄜˇ", distractors: ["ㄖㄜˋ", "ㄖㄜˊ", "ㄖㄜ"], isTone: true },
+      { id: 89, type: "寫出國字", prefix: "泥", target: "ㄋㄧㄥˋ", suffix: "", ans: "濘", hint: "泥濘為水部「濘」", distractors: ["擰", "嚀", "獰"], isTone: false },
+      { id: 90, type: "寫出注音", prefix: "", target: "ㄋㄧㄥˇ", suffix: "緊螺絲", ans: "ㄋㄧㄥˇ", hint: "轉動螺絲讀上聲 ㄋㄧㄥˇ", distractors: ["ㄋㄧㄥˊ", "ㄋㄧㄥˋ", "ㄋㄧㄥ"], isTone: true },
+      { id: 91, type: "寫出注音", prefix: "叮", target: "ㄋㄧㄥˊ", suffix: "", ans: "ㄋㄧㄥˊ", hint: "叮嚀讀陽平 ㄋㄧㄥˊ", distractors: ["ㄋㄧㄥˇ", "ㄋㄧㄥˋ", "ㄋㄧㄥ"], isTone: true },
+      { id: 92, type: "寫出注音", prefix: "面目猙", target: "ㄋㄧㄥˊ", suffix: "", ans: "ㄋㄧㄥˊ", hint: "面目猙獰讀陽平 ㄋㄧㄥˊ", distractors: ["ㄋㄧㄥˇ", "ㄋㄧㄥˋ", "ㄋㄧㄥ"], isTone: true },
+      { id: 93, type: "寫出國字", prefix: "", target: "ㄆㄨˊ", suffix: "實無華", ans: "樸", hint: "樸實為木部「樸」", distractors: ["璞", "僕", "撲"], isTone: false },
+      { id: 94, type: "寫出國字", prefix: "", target: "ㄆㄨˊ", suffix: "玉", ans: "璞", hint: "璞玉為玉部「璞」", distractors: ["樸", "僕", "撲"], isTone: false },
+      { id: 95, type: "寫出國字", prefix: "奴", target: "ㄆㄨˊ", suffix: "", ans: "僕", hint: "奴僕為人部「僕」", distractors: ["樸", "璞", "撲"], isTone: false },
+      { id: 96, type: "寫出國字", prefix: "", target: "ㄆㄨ", suffix: "滅", ans: "撲", hint: "撲滅為手部「撲」", distractors: ["僕", "樸", "璞"], isTone: false },
+      { id: 97, type: "寫出國字", prefix: "飛蛾", target: "ㄆㄨ", suffix: "火", ans: "撲", hint: "飛蛾撲火為手部「撲」", distractors: ["僕", "樸", "璞"], isTone: false },
+      { id: 98, type: "寫出注音", prefix: "張騰", target: "蛟", suffix: "", ans: "ㄐㄧㄠ", hint: "蛟龍讀陰平 ㄐㄧㄠ", distractors: ["ㄐㄧㄠˇ", "ㄐㄧㄠˋ", "ㄐㄧㄠˊ"], isTone: true },
+      { id: 99, type: "寫出注音", prefix: "不", target: "為", suffix: "人知", ans: "ㄨㄟˊ", hint: "被動讀陽平 ㄨㄟˊ", distractors: ["ㄨㄟˋ", "ㄨㄟˇ", "ㄨㄟ"], isTone: true },
+      { id: 100, type: "寫出注音", prefix: "", target: "烽", suffix: "火", ans: "ㄈㄥ", hint: "烽火讀陰平 ㄈㄥ", distractors: ["ㄈㄥˊ", "ㄈㄥˇ", "ㄈㄥˋ"], isTone: true }
+    ];
+
+    /* =========================================================================
+     * 3. 模組四：課本文意理解深究題庫 (段考精選 80 題，題題附深度詳解)
+     * ========================================================================= */
+    const compQuestions = [
+      /* --- 第四課：差不多先生傳 (20 題) --- */
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 寫作手法",
+        prompt: "文章開頭胡適說差不多先生是「各省各縣各村人氏」，作者在此安排的用意為何？",
+        options: [
+          { text: "差不多先生到處流浪，四海為家", isCorrect: false },
+          { text: "諷刺敷衍苟且是全中國人的通病，並非少數人特例", isCorrect: true },
+          { text: "說明差不多先生祖籍廣大，親族眾多", isCorrect: false },
+          { text: "證明作者曾經在各省各縣親自訪問過他", isCorrect: false }
+        ],
+        mainExp: "作者透過「各省各縣各村人氏」，將差不多先生虛構為代表全體國民陋習的典型人物，開門見山點出凡事馬虎是不分地域的全國性通病。",
+        examExp: "段考常考題！此處使用「以虛指實」的寓言手法，寄寓作者批判國民性、希望國人覺醒改革的良苦用心。"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 人物刻劃",
+        prompt: "差不多先生母親叫他買「紅糖」，他買了「白糖」回來說「紅糖白糖不是差不多嗎？」這段情節主要在諷刺什麼？",
+        options: [
+          { text: "商人偷工減料，以假亂真", isCorrect: false },
+          { text: "差不多先生孝順母親，懂得變通節省", isCorrect: false },
+          { text: "概念混淆不清，缺乏求真務實的精神", isCorrect: true },
+          { text: "古代物資匱乏，糖類難以辨別", isCorrect: false }
+        ],
+        mainExp: "紅糖與白糖顏色、原料與用途截然不同，差不多先生卻以『差不多』強詞奪理，生動展現其混淆是非、得過且過的荒謬心態。",
+        examExp: "段考常考情節分析題：注意胡適善用生活中『買糖、記帳、搭火車、看病』四件由小至大的事例，層層推進描寫。"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 情節深究",
+        prompt: "差不多先生在錢鋪做夥計，常把「十」寫成「千」，把「千」寫成「十」。掌櫃生氣罵他，他卻說「千字比十字只多一小撇，不是差不多嗎？」這反映他何種心態？",
+        options: [
+          { text: "書法造詣極高，不拘泥於世俗字形", isCorrect: false },
+          { text: "做事毫無原則、強詞奪理，無視商業精準要求", isCorrect: true },
+          { text: "體恤掌櫃辛苦，故意幽默化解緊張氣氛", isCorrect: false },
+          { text: "視力患有嚴重眼疾，無法辨認細微筆劃", isCorrect: false }
+        ],
+        mainExp: "在錢鋪帳目中，「十」與「千」差了一百倍，涉及巨大金額。差不多先生卻輕描淡寫說只差一撇，凸顯其因循茍且、毫無責任感。",
+        examExp: "常考「由小事見大病」手法，考試常問此處與後文「汪大夫」事件的因果對比。"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 時間觀念",
+        prompt: "差不多先生搭火車遲到兩分鐘，眼看火車開走，他心裡想：「今天走，明天走，不是差不多嗎？火車公司未免太認真了。」這句話最能看出他的何種缺點？",
+        options: [
+          { text: "懂得隨遇而安，不受外在規矩拘束", isCorrect: false },
+          { text: "不守時間觀念，反而怪罪體制守時", isCorrect: true },
+          { text: "具有宏觀的時間哲學，視光陰如浮雲", isCorrect: false },
+          { text: "批評現代鐵路技術不成熟，缺乏人性考量", isCorrect: false }
+        ],
+        mainExp: "遲到是自己的過失，他不但不自我反省，反而反咬火車公司太認真，生動批判國人不守時間、缺乏現代文明守時守法觀念。",
+        examExp: "段考常考素養題：現代公民社會講求準時，差不多先生的行徑正好是最佳反面教材。"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 生死關頭",
+        prompt: "差不多先生病重時，家人找不著東街汪大夫，延請了十字街獸醫汪大夫。差不多先生心想「汪大夫跟汪大夫差不多」，結果一命嗚呼。這場悲劇的根本原因是什麼？",
+        options: [
+          { text: "古代醫療資源貧乏，找不到合格名醫", isCorrect: false },
+          { text: "東街汪大夫醫術不精，貽誤病情", isCorrect: false },
+          { text: "至死不改『凡事將就』的惡習，自食惡果", isCorrect: true },
+          { text: "家人為了節省醫藥費，故意請獸醫看病", isCorrect: false }
+        ],
+        mainExp: "人與牛體質截然不同，獸醫豈能醫人？差不多先生在生死交關之際仍抱持『差不多』的想法，最終付出生命代價，是全文諷刺的高潮。",
+        examExp: "段考必考題！此情節象徵若國家民族凡事差不多，終將走向衰亡絕境（自食惡果）。"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 深層諷刺",
+        prompt: "差不多先生臨死前說：「凡事只要差不多……就好了……」，大家稱讚他有德行、尊稱他為「圓通大師」，作者運用了何種寫作手法？",
+        options: [
+          { text: "反諷（明褒暗貶），表面讚美其圓通，實質批判國人是非不分的劣根性", isCorrect: true },
+          { text: "開門見山，直接歌頌佛教大師的智慧與寬容", isCorrect: false },
+          { text: "託物言志，藉由臨終遺言表彰其與世無爭的人生境界", isCorrect: false },
+          { text: "借景抒情，描繪差不多先生過世時社會的和諧溫暖", isCorrect: false }
+        ],
+        mainExp: "『圓通大師』本是指通達事理的高僧，胡適卻借眾人之口送給一個因苟且而枉死的人，透過強烈諷刺（明褒暗貶），痛斥社會盲從與荒謬。",
+        examExp: "段考修辭與主旨必考題！『明褒暗貶』為胡適本篇最精采的修辭手法，不可誤選為正面讚美。"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 結尾寓意",
+        prompt: "文章最後說：「大家都要學他，於是人人都成了一個差不多先生——然而中國從此就成了一個懶人國了。」這段話表達作者何種心情？",
+        options: [
+          { text: "慶幸大家都找到輕鬆過日子的好方法", isCorrect: false },
+          { text: "沉痛憂慮國人盲從苟且，將導致國家競爭力淪喪", isCorrect: true },
+          { text: "讚許國民知足常樂，無憂無慮", isCorrect: false },
+          { text: "期待中國能成為世界知名的休閒觀光大國", isCorrect: false }
+        ],
+        mainExp: "胡適寫這篇傳記不是說笑話，而是以沉痛的筆調敲響警鐘：若全體國民都甘於苟且、不求長進，國家必將落後挨打、走向滅亡。",
+        examExp: "常考「主旨題」與「作者寫作動機」：喚醒國人摒棄劣根性、走向科學求真求實的現代化。"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 修辭手法",
+        prompt: "「差不多先生的名氣，愈傳愈大，大家都稱讚他樣樣事情看得破，想得通；大家都說他一生不肯認真，不肯算帳，真是一位有德行的人。」句中「有德行」屬於何種修辭？",
+        options: [
+          { text: "倒反（反諷）", isCorrect: true },
+          { text: "譬喻", isCorrect: false },
+          { text: "排比", isCorrect: false },
+          { text: "頂真", isCorrect: false }
+        ],
+        mainExp: "表面上說他『有德行』，骨子裡卻是在罵他『無原則、缺公德、誤國誤民』，正言反出，屬於修辭學上的倒反（反語）。",
+        examExp: "段考修辭必考題！注意倒反修辭與字面意義完全相反。"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 文學常識",
+        prompt: "關於胡適與〈差不多先生傳〉的敘述，下列何者「錯誤」？",
+        options: [
+          { text: "胡適是民國初年提倡白話文運動的重要領袖之一", isCorrect: false },
+          { text: "本文體裁是一篇虛構的寓言式傳記散文", isCorrect: false },
+          { text: "文中描寫的人物是胡適童年時隔壁村的真實鄰居", isCorrect: true },
+          { text: "本文主旨旨在針砭中國傳統社會中凡事不求甚解的弊病", isCorrect: false }
+        ],
+        mainExp: "差不多先生是胡適『虛構』出來的象徵性人物，並非現實生活中的特定鄰居，是用來代表千千萬萬苟且度日的國民典型。",
+        examExp: "段考常考作者與文體常識題：牢記差不多先生是『虛構的寓言典型人物』。"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 成語延伸",
+        prompt: "下列哪一個成語，最適合用來形容差不多先生一生的行事風格？",
+        options: [
+          { text: "因循苟且", isCorrect: true },
+          { text: "一絲不苟", isCorrect: false },
+          { text: "未雨綢繆", isCorrect: false },
+          { text: "精益求精", isCorrect: false }
+        ],
+        mainExp: "『因循苟且』指沿襲舊習，敷衍草率，得過且過，正是差不多先生性格的最佳寫照。相反詞為『一絲不苟』、『精益求精』。",
+        examExp: "二段成語必考成語對比！因循苟且（差不多先生）vs 一絲不苟（那默默的一群）。"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 事例排序",
+        prompt: "胡適在描寫差不多先生的事例時，情節安排的順序為何？①買糖 ②遲到誤車 ③誤延獸醫 ④記帳寫錯字",
+        options: [
+          { text: "①④②③", isCorrect: true },
+          { text: "④①②③", isCorrect: false },
+          { text: "①②④③", isCorrect: false },
+          { text: "②①④③", isCorrect: false }
+        ],
+        mainExp: "課文情節依生活小事至生死大事排序：幼年買白糖（小事）→錢鋪記帳十字千字（工作）→搭火車遲到（社會規則）→延請牛醫（生死關頭）。",
+        examExp: "段考結構梳理題！情節由微至顯、由輕至重，層層推進強化批判力道。"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 字詞辨析",
+        prompt: "文中說差不多先生常「賠小心」，這裡的「賠」字是什麼意思？",
+        options: [
+          { text: "賠償金錢或物品", isCorrect: false },
+          { text: "虧損本金", isCorrect: false },
+          { text: "低聲下氣地道歉或討好他人", isCorrect: true },
+          { text: "陪伴隨侍在側", isCorrect: false }
+        ],
+        mainExp: "『賠小心』是舊時俗語，指自知理虧或為了息事寧人，表面低頭奉承、好言道歉。",
+        examExp: "段考字音字義常考題：注意『賠小心』（貝部）、『陪伴』（阜部）、『栽培』（土部）的字形字義區分。"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 詞語代稱",
+        prompt: "文中差不多先生病重斷氣時，作者用了「一命嗚呼」來描寫，這個詞語在此帶有何種語氣？",
+        options: [
+          { text: "極度悲痛與哀戚的悼念", isCorrect: false },
+          { text: "帶有詼諧、諷刺且輕視的口吻", isCorrect: true },
+          { text: "莊嚴崇高的英雄輓歌", isCorrect: false },
+          { text: "毫無感情色彩的客觀醫學紀錄", isCorrect: false }
+        ],
+        mainExp: "若是偉人逝世多用『溘然長逝』、『與世長辭』；作者用『一命嗚呼』這種略帶詼諧的口吻，更凸顯差不多先生死得荒謬、不值得同情。",
+        examExp: "常考題：死亡代稱的感情色彩判斷（一命嗚呼 vs 與世長辭 vs 駕崩）。"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 諷刺手法",
+        prompt: "差不多先生把「陝西」說成「山西」，還說「陝西同山西不是差不多嗎？」胡適藉此批評國民缺乏什麼觀念？",
+        options: [
+          { text: "精確的地理知識與求真態度", isCorrect: true },
+          { text: "對長官的敬畏心", isCorrect: false },
+          { text: "旅遊踏青的閒情逸致", isCorrect: false },
+          { text: "方言溝通與外交談判能力", isCorrect: false }
+        ],
+        mainExp: "陝西在黃河以西，山西在太行山以西，兩省地理位置與風土截然不同，差不多先生卻只因字形相近就混為一談，諷刺國人不求甚解。",
+        examExp: "考題常考形近字辨正：陝（ㄕㄢˇ，陝西）vs 峽（ㄒㄧㄚˊ，峽谷）vs 俠（ㄒㄧㄚˊ，武俠）。"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 素養情境",
+        prompt: "現代科技製造晶片（半導體）時，工程師必須控制誤差在奈米等級。如果工程師抱持「差不多先生」的心態，最可能發生何種後果？",
+        options: [
+          { text: "晶片良率大幅提高，成本降低", isCorrect: false },
+          { text: "製程嚴重失誤，導致整批晶片報廢，造成巨大損失", isCorrect: true },
+          { text: "員工工作壓力減輕，效率倍增", isCorrect: false },
+          { text: "激發員工創新思維，發明全新科技產品", isCorrect: false }
+        ],
+        mainExp: "現代精密工業講求絕對的精準度，絲毫誤差都不能容許。抱持『差不多』心態在現代社會將引發災難性後果。",
+        examExp: "108 課綱素養情境應用題：將古典課文理念連結現代精密科技與生活省思。"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 標點符號",
+        prompt: "差不多先生臨終斷氣前說：「活人……同死人……也……差……差不多……罷了……」句中大量使用「省略號（……）」，主要在描繪什麼？",
+        options: [
+          { text: "病房環境的安靜空曠", isCorrect: false },
+          { text: "臨終前呼吸微弱、氣息奄奄、斷斷續續的神態", isCorrect: true },
+          { text: "差不多先生在思考極深奧的哲學問題", isCorrect: false },
+          { text: "家人在旁痛哭打斷了他的話語", isCorrect: false }
+        ],
+        mainExp: "六個點的省略號（刪節號）生動模擬出瀕死之人上氣不接下氣、斷續微弱的語調，兼具戲劇效果與諷刺意味。",
+        examExp: "段考標點符號用法常考題：省略號在此表示「語氣的斷續或呼吸急促」。"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 課文細節",
+        prompt: "差不多先生的外貌特徵，課文寫道：「他有一雙眼睛，但看不太清楚；有兩隻耳朵，但聽不太要緊。」這段話的深層寓意為何？",
+        options: [
+          { text: "差不多先生天生重度殘障，令人同情", isCorrect: false },
+          { text: "生理器官健全，心態上卻對身邊事物漠不關心、盲目遲鈍", isCorrect: true },
+          { text: "說明清代醫學不發達，眼疾耳疾極為普遍", isCorrect: false },
+          { text: "暗示差不多先生具有特異功能，能用心靈感應世界", isCorrect: false }
+        ],
+        mainExp: "作者以器官的健全反襯心靈的麻木不仁，指責國人明明能求精求真，卻自願選擇視而不見、聽而不聞。",
+        examExp: "段考句意深究常考題：注意『明察秋毫』與此句的對比。"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 文意反思",
+        prompt: "胡適認為要根治中國的「差不多」通病，最需要引進哪種精神？",
+        options: [
+          { text: "實事求是的科學與求真精神", isCorrect: true },
+          { text: "安貧樂道的隱士精神", isCorrect: false },
+          { text: "尊卑有序的封建禮教", isCorrect: false },
+          { text: "超凡脫俗的道家清靜無為思想", isCorrect: false }
+        ],
+        mainExp: "胡適一生大力鼓吹『大膽假設，小心求證』的科學精神，寫此文正是為了破除迷信盲從與含混茍且。",
+        examExp: "二段文意結合胡適核心思想常考重點。"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 詞義正反",
+        prompt: "下列各組詞語，何者意義「相反」？",
+        options: [
+          { text: "因循苟且／敷衍了事", isCorrect: false },
+          { text: "一絲不苟／馬馬虎虎", isCorrect: true },
+          { text: "一命嗚呼／溘然長逝", isCorrect: false },
+          { text: "未雨綢繆／防患未然", isCorrect: false }
+        ],
+        mainExp: "『一絲不苟』（一點也不馬虎）與『馬馬虎虎』（草率隨便）為反義詞；其餘三組皆為同義詞。",
+        examExp: "段考成語同反義辨析必考題！"
+      },
+      {
+        cat: "l04",
+        lesson: "差不多先生傳 • 篇章結論",
+        prompt: "閱讀完〈差不多先生傳〉，我們應該建立何種正確的人生態度？",
+        options: [
+          { text: "與人相處要凡事吹毛求疵、尖酸苛薄", isCorrect: false },
+          { text: "做人講原則、做事求精確，杜絕馬虎因循的惰性", isCorrect: true },
+          { text: "隨波逐流，別人怎麼做自己就怎麼做", isCorrect: false },
+          { text: "既然改變不了社會，不如像差不多先生一樣及時行樂", isCorrect: false }
+        ],
+        mainExp: "胡適藉寓言傳記給予世人啟示：唯有認真負責、追求精確，個人才能立足，國家社會才能進步。",
+        examExp: "段考閱讀素養總結題。"
+      },
+
+      /* --- 第五課：孔子〈論語選〉 (20 題) --- */
+      {
+        cat: "l05",
+        lesson: "論語選 • 學習實踐",
+        prompt: "孔子說：「學而時習之，不亦說乎？」根據朱熹與課文註釋，「時習」的真正意涵為何？",
+        options: [
+          { text: "按照學校課表的時間來溫習", isCorrect: false },
+          { text: "在適當的年齡學習，不可過早或過晚", isCorrect: false },
+          { text: "時常溫習，並將所學在日常生活中實踐印證", isCorrect: true },
+          { text: "偶爾複習一次即可，重在天資聰穎", isCorrect: false }
+        ],
+        mainExp: "『學』是效法理解，『習』是鳥兒反覆試飛，引申為『反覆溫習並身體力行』。學習新知並融入生活實踐，方能產生發自內心的喜悅（說／悅）。",
+        examExp: "段考常考『說』通『悅』的假借音義，以及『習』字的深層實踐意涵。"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 友情切磋",
+        prompt: "「有朋自遠方來，不亦樂乎？」這裡的「朋」具有何種特質？",
+        options: [
+          { text: "家財萬貫、能給予物質資助的朋友", isCorrect: false },
+          { text: "同師同道、志同道合，能相互切磋學問的朋友", isCorrect: true },
+          { text: "身分顯赫、具有政治權勢的達官顯要", isCorrect: false },
+          { text: "僅在宴席聚會中吃喝玩樂的酒肉朋友", isCorrect: false }
+        ],
+        mainExp: "在古文中古人講『同門曰朋，同志曰友』。志同道合的朋友不遠千里前來切磋交流，是精神上莫大的快樂。",
+        examExp: "常考『說（悅）』與『樂』的心境層次差異：說（悅）由內心自得，樂因外在好友相聚而共享。"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 君子品格",
+        prompt: "「人不知而不慍，不亦君子乎？」這句話所體現的君子道德修養為何？",
+        options: [
+          { text: "即便別人不了解自己或未獲賞識，內心依然坦然不生怨恨", isCorrect: true },
+          { text: "即使不知道別人的缺點，也絕不隨意發怒", isCorrect: false },
+          { text: "隱藏自己的才華，絕不讓別人知曉", isCorrect: false },
+          { text: "遇到不知感恩的人，應當嚴加斥責以導正社會風氣", isCorrect: false }
+        ],
+        mainExp: "『慍』是怨恨生氣。真正的君子求學是為了充實自己（為己之學），即便才華名望不為外人所知，也不感到委屈或怨懟，展現高度自足的道德修養。",
+        examExp: "段考常考意旨理解與『慍』的字音（ㄩㄣˋ）與字義（怨恨）。"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 謙虛求教",
+        prompt: "子曰：「三人行，必有我師焉。」這句話告誡我們在求學做人時應抱持何種心態？",
+        options: [
+          { text: "出門旅行必須結伴三人才能確保安全", isCorrect: false },
+          { text: "虛懷若谷，隨時隨地能從任何人身上吸取優點或引以為戒", isCorrect: true },
+          { text: "只有三人以上的團體，才配得上稱為師長", isCorrect: false },
+          { text: "在眾人之中自己應當努力爭當領導者", isCorrect: false }
+        ],
+        mainExp: "『三人』是虛指多數人。孔子認為任何人都有值得借鏡之處，隨處皆可學習，是極高境界的謙虛態度。",
+        examExp: "常考虛數詞：三人、三思、退避三舍中的『三』皆為虛數指多數。"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 擇善固執",
+        prompt: "「擇其善者而從之，其不善者而改之」體現了何種學習方法？",
+        options: [
+          { text: "兼具「正面效法」與「反面省思（以人為鏡）」的批判學習精神", isCorrect: true },
+          { text: "只看別人的優點，絕不過問任何缺點", isCorrect: false },
+          { text: "一旦發現別人犯錯，立刻與之絕交", isCorrect: false },
+          { text: "隨時糾正別人的不善，嚴以待人", isCorrect: false }
+        ],
+        mainExp: "見賢思齊（善者從之），見不賢而內自省（不善者改之），將別人當作一面鏡子檢討自己，正反皆能成為成長養分。",
+        examExp: "段考常將此句與成語『見賢思齊』、『以人為鏡』相互印證出題。"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 持之以恆",
+        prompt: "子曰：「譬如為山，未成一簣，止，吾止也。」孔子以堆山為喻，意在強調什麼道理？",
+        options: [
+          { text: "堆積土山太辛苦，應當適時休息以保養身體", isCorrect: false },
+          { text: "學業功虧一簣的失敗，純粹出於自己的停止與放棄", isCorrect: true },
+          { text: "做大事必須依靠集體力量，單憑一人無法成山", isCorrect: false },
+          { text: "自然山巒崇高偉大，非人力所能及", isCorrect: false }
+        ],
+        mainExp: "『簣』是盛土的竹筐。九仞高山只差最後一筐土就完成，若在此時停手，那就是自己停止了前功盡棄，責任完全在於自己放棄。",
+        examExp: "必考成語出處！『功虧一簣』出自此章。注意『簣』（竹部）不可寫成『櫃』或『潰』。"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 循序漸進",
+        prompt: "「譬如平地，雖覆一簣，進，吾往也。」這句話所彰顯的正向學習信念為何？",
+        options: [
+          { text: "即使起步只是倒下一筐土，只要堅持不斷往前，成山之功在於自己邁步", isCorrect: true },
+          { text: "在平地上建房子比在山上容易得多", isCorrect: false },
+          { text: "凡事剛起步時不需太認真，慢慢來就好", isCorrect: false },
+          { text: "傾倒廢土應該選擇平地，才不致破壞水土保持", isCorrect: false }
+        ],
+        mainExp: "與前半段『未成一簣』形成強烈對比：只要願意開始行動並持之以恆，哪怕起點只是一小步，也能聚沙成塔成就大業。",
+        examExp: "常考映襯修辭：未成一簣（功敗垂成）vs 雖覆一簣（鍥而不捨）。"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 處世之道",
+        prompt: "子貢問曰：「有一言而可以終身行之者乎？」子曰：「其恕乎！己所不欲，勿施於人。」句中的「恕」道核心是什麼？",
+        options: [
+          { text: "不論是非黑白，一律無原則地寬恕包容他人", isCorrect: false },
+          { text: "推己及人，以同理心站在他人立場設身處地著想", isCorrect: true },
+          { text: "要求別人必須用最崇高的道德標準對待自己", isCorrect: false },
+          { text: "多說動聽悅耳的言詞以維持良好的人際關係", isCorrect: false }
+        ],
+        mainExp: "『恕』由『如』與『心』組成，即『如人之心』。自己不喜歡被強加的事情，就絕不強加於他人，是孔子思想中最高度實踐的仁道準則。",
+        examExp: "段考經典必考題！注意『其』是推測語氣（大概、可能），『一言』是一字（恕），不是一句話。"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 文學體裁",
+        prompt: "關於《論語》這部典籍的性質，下列敘述何者「最正確」？",
+        options: [
+          { text: "是孔子親自撰寫的哲學專著", isCorrect: false },
+          { text: "是孔子弟子及再傳弟子記錄孔子與弟子言行的語錄體著作", isCorrect: true },
+          { text: "是一部記載春秋時代各國戰爭的歷史編年史", isCorrect: false },
+          { text: "由宋代朱熹一人獨立編纂成書", isCorrect: false }
+        ],
+        mainExp: "《論語》由孔子門人及再傳弟子集體輯錄而成，體裁為『語錄體』，每篇篇名取自該篇開頭首二至三字，無特定題旨系統。",
+        examExp: "國中段考與會考必考國學常識：《論語》為語錄體，非孔子自撰！"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 經典地位",
+        prompt: "南宋理學大師朱熹將《論語》與哪三部書合稱為「四書」？",
+        options: [
+          { text: "《孟子》、《大學》、《中庸》", isCorrect: true },
+          { text: "《詩經》、《尚書》、《禮記》", isCorrect: false },
+          { text: "《史記》、《漢書》、《後漢書》", isCorrect: false },
+          { text: "《老子》、《莊子》、《荀子》", isCorrect: false }
+        ],
+        mainExp: "四書為：論語、孟子、大學、中庸；五經為：詩、書、易、禮、春秋。朱熹作《四書集注》，成為後世科舉必考經典。",
+        examExp: "段考文化常識必背題：四書（論孟學庸）。"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 君子三德",
+        prompt: "孔子曾提到君子有三種崇高德行：「仁者不憂，知者不惑，勇者不懼。」下列詮釋何者正確？",
+        options: [
+          { text: "「知者不惑」是指有智慧的人明辨是非、不易受虛妄蒙蔽", isCorrect: true },
+          { text: "「仁者不憂」是因為仁慈的人身分富貴，無須為生活操心", isCorrect: false },
+          { text: "「勇者不懼」是指魯莽衝動的人什麼都敢做", isCorrect: false },
+          { text: "「知」在此處指知道很多八卦新聞", isCorrect: false }
+        ],
+        mainExp: "知（通智）者深明事理故不疑惑；仁者問心無愧樂天知命故不憂愁；勇者伸張正義無所畏懼。",
+        examExp: "段考常考『知』通『智』的音義，以及三者名句對應。"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 終身學習",
+        prompt: "孔子說：「溫故而知新，可以為師矣。」這句話指明當老師必須具備何種專業特質？",
+        options: [
+          { text: "嚴格懲罰犯錯的學生，維持課堂威嚴", isCorrect: false },
+          { text: "熟讀舊知識並能從中領悟創發出新的見解與體會", isCorrect: true },
+          { text: "每天必須為學生準備全新的講義，不可重複", isCorrect: false },
+          { text: "具備長生不老的健康體魄與和藹笑容", isCorrect: false }
+        ],
+        mainExp: "當老師不能只是機械式傳授死板舊知識，必須能『溫故』（溫習舊聞）且『知新』（領悟新理、與時俱進），才能引導學生。",
+        examExp: "常考成語『溫故知新』的意涵與教師專業修養。"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 啟發教學",
+        prompt: "孔子說：「不憤不啟，不悱不發。」這表現了他何種卓越的教育智慧？",
+        options: [
+          { text: "學生不發脾氣，老師就不去指導他", isCorrect: false },
+          { text: "注重啟發式教學，等待學生主動思考、想要表達卻卡住時才給予適時點撥", isCorrect: true },
+          { text: "提倡填鴨式教育，強迫學生死記硬背所有經典", isCorrect: false },
+          { text: "對資質不好的學生一律放棄教學，放任自流", isCorrect: false }
+        ],
+        mainExp: "『憤』是苦思未得的急切，『悱』是口欲言而未能的狀態。孔子強調啟發式教學，唯有學生自身有強烈求知慾時引導，效果最好。",
+        examExp: "常考孔子教育理念：因材施教、有教無類、啟發教學。"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 虛字字義",
+        prompt: "「學而時習之」與「擇其善者而從之」兩句中的「之」字，詞性與用法何者正確？",
+        options: [
+          { text: "兩者都是代詞，前者代指所學的知識，後者代指優秀的人或善行", isCorrect: true },
+          { text: "兩者都是動詞，意思是「前往、到……去」", isCorrect: false },
+          { text: "兩者都是介詞，意思是「在、於」", isCorrect: false },
+          { text: "前者是代詞，後者是無義的助詞", isCorrect: false }
+        ],
+        mainExp: "在文言文中『之』字用法極多：此處兩者皆為第三人稱代詞（代指人、事、物），代指學習內容與善行美德。",
+        examExp: "段考文言文虛字『之』字大考驗（代詞、助詞、動詞到…去）！"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 敬業樂群",
+        prompt: "孔子說：「君子食無求飽，居無求安，敏於事而慎於言，就有道而正焉。」這段話強調君子最重視什麼？",
+        options: [
+          { text: "追求奢華的物質生活享受", isCorrect: false },
+          { text: "修身進德、做事敏捷、說話謹慎，並主動親近有道者匡正自己", isCorrect: true },
+          { text: "每天必須挨餓以鍛鍊意志力", isCorrect: false },
+          { text: "廣開言路，四處大放厥詞發表高見", isCorrect: false }
+        ],
+        mainExp: "物質生活只要簡樸足夠即可，重點在於精神層面的修德行善，說話謹慎、做事踏實、親近仁德君子以校正品格。",
+        examExp: "常考『敏於事而慎於言』在做人處事上的實踐意涵。"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 友誼之道",
+        prompt: "孔子在《論語》中曾論及益友有三：「友直、友諒、友多聞。」下列對益友的詮釋何者正確？",
+        options: [
+          { text: "友直：個性正直不阿；友諒：誠實守信；友多聞：見聞廣博", isCorrect: true },
+          { text: "友直：身材筆直修長；友諒：經常原諒自己的過錯；友多聞：鼻子靈敏聞得到香味", isCorrect: false },
+          { text: "友直：說話直白尖酸；友諒：斤斤計較互相體諒；友多聞：八卦靈通", isCorrect: false },
+          { text: "友直：行事不知變通；友諒：善於藉故開脫；友多聞：喜歡四處打聽隱私", isCorrect: false }
+        ],
+        mainExp: "直（正直）、諒（誠信信實）、多聞（見識淵博）為三種對人生有益的良師益友；相對損友為『友便辟、友善柔、友便佞』。",
+        examExp: "段考經典文化與交友之道考題。"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 成語辨析",
+        prompt: "「九仞之山，功虧一簣」中「功虧一簣」的成語意思與下列何者「最接近」？",
+        options: [
+          { text: "半途而廢", isCorrect: true },
+          { text: "堅持到底", isCorrect: false },
+          { text: "大功告成", isCorrect: false },
+          { text: "旗開得勝", isCorrect: false }
+        ],
+        mainExp: "功虧一簣指事情只差最後一步而失敗，與『半途而廢』、『前功盡棄』同義。",
+        examExp: "考卷成語選擇題原題同義轉化。"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 設問修辭",
+        prompt: "「學而時習之，不亦說乎？」「有朋自遠方來，不亦樂乎？」「人不知而不慍，不亦君子乎？」這三句話運用了何種設問手法？",
+        options: [
+          { text: "激問（反問，答案在問題的反面）", isCorrect: true },
+          { text: "提問（先問自答）", isCorrect: false },
+          { text: "懸問（有問無答，純表疑惑）", isCorrect: false },
+          { text: "疑問（不知答案而詢問對方）", isCorrect: false }
+        ],
+        mainExp: "『不亦……乎』意為『不也是很……嗎？』心中早有定見（當然很快樂、當然是君子），屬於無疑而問的『激問（反詰）』修辭。",
+        examExp: "段考修辭必考重點：提問、激問、懸問三種設問的區分。"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 歷史地位",
+        prompt: "孔子被後世尊奉為「至聖先師」、「萬世師表」，其主要歷史功績為何？",
+        options: [
+          { text: "發明活字印刷術，普及民間書籍", isCorrect: false },
+          { text: "開創平民教育先河（有教無類），確立以仁為核心的儒家學術思想", isCorrect: true },
+          { text: "統一中國文字與度量衡", isCorrect: false },
+          { text: "率領軍隊平定戰國七雄，建立大一統帝國", isCorrect: false }
+        ],
+        mainExp: "孔子打破貴族壟斷教育的階級壁壘，首創私學，提倡『有教無類』與仁愛思想，深刻形塑兩千多年中華文化。",
+        examExp: "國中歷史與國文跨科整合常考常識。"
+      },
+      {
+        cat: "l05",
+        lesson: "論語選 • 實踐反思",
+        prompt: "面對同學在背後誤解或批評自己時，如果依循《論語》的教誨，我們最適當的反應是什麼？",
+        options: [
+          { text: "在社群網路上發動全班圍剿報復", isCorrect: false },
+          { text: "「人不知而不慍」，反求諸己、問心無愧，保持寬宏平和的君子之風", isCorrect: true },
+          { text: "立刻找校長和警察提告誹謗", isCorrect: false },
+          { text: "像差不多先生一樣，凡事說「差不多啦」不予理會", isCorrect: false }
+        ],
+        mainExp: "君子求諸己，小人求諸人。面對外界誤解，不慍不怒，用從容修養展現人格高度。",
+        examExp: "108 課綱生活情境素養實踐題。"
+      },
+
+      /* --- 第六課：張騰蛟〈那默默的一群〉 (20 題) --- */
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 寫作手法",
+        prompt: "張騰蛟在〈那默默的一群〉中，將清晨的道路清潔隊員比喻為「在防區守衛的軍人」，這樣的比喻有何深意？",
+        options: [
+          { text: "暗示清潔隊員紀律嚴格，受過軍事化訓練", isCorrect: false },
+          { text: "形容清潔隊員掃地時神情嚴肅冷酷，難以親近", isCorrect: false },
+          { text: "讚揚他們將維護市容視為神聖天職，具有如軍人堅守陣地般的敬業責任感", isCorrect: true },
+          { text: "說明清潔隊員的薪水待遇與國軍官兵相同", isCorrect: false }
+        ],
+        mainExp: "作者用『防區』借指街道清潔責任範圍，將掃帚比喻為武器，生動襯托出基層勞動者默默堅守崗位、不容一絲雜質與髒亂的崇高職業尊嚴。",
+        examExp: "段考修辭與文意核心！注意『防區』在此處並非真正的軍隊營地，而是借代清潔工的工作責任範圍。"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 人性對比",
+        prompt: "課文中寫清潔工人工作時「一絲不苟，絕不馬虎」，即便遇到爛泥風雨也「不厭其煩」，這與〈差不多先生傳〉形成何種鮮明對比？",
+        options: [
+          { text: "前者恪盡職責、精益求精；後者得過且過、敷衍塞責", isCorrect: true },
+          { text: "前者盲目蠻幹、不懂變通；後者隨遇而安、豁達樂觀", isCorrect: false },
+          { text: "前者追求名利權勢；後者淡泊名利、歸隱山林", isCorrect: false },
+          { text: "兩者都展現了中國傳統底層人民逆來順受的無奈", isCorrect: false }
+        ],
+        mainExp: "張騰蛟筆下的清潔工是『認真、負責、一絲不苟』的典範；胡適筆下的差不多先生則是『草率、含糊、敷衍塞責』的典型，兩文在處事態度上形成強烈對比。",
+        examExp: "二段跨課文整合常考素養題！兩課剛好代表『認真負責』與『敷衍了事』的兩極對照。"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 形象塑造",
+        prompt: "文中形容清道夫掃地動作「如鷹之攫燕」，這個比喻主要在描繪清道夫何種動作特點？",
+        options: [
+          { text: "兇狠殘酷，嚇退四周鳥類", isCorrect: false },
+          { text: "動作敏捷、俐落精準，迅速將垃圾碎屑掃起", isCorrect: true },
+          { text: "高高在上，監視著整條街上的行人", isCorrect: false },
+          { text: "動作笨重緩慢，如同老鷹抓燕子般吃力", isCorrect: false }
+        ],
+        mainExp: "鷹之攫燕（老鷹捕抓飛燕）是極為迅疾準確的動作，用來形容清潔工揮動掃把時的熟練敏捷、乾淨俐落。",
+        examExp: "段考譬喻修辭經典考題！注意『攫』（ㄐㄩㄝˊ，抓取）的字音與意境。"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 視覺摹寫",
+        prompt: "「雨水將泥沙沖刷到路上，鋪成一塊塊打著一把雨傘似的地毯。」這句話運用了何種感官摹寫與修辭？",
+        options: [
+          { text: "視覺摹寫與譬喻修辭", isCorrect: true },
+          { text: "聽覺摹寫與轉化修辭", isCorrect: false },
+          { text: "嗅覺摹寫與誇飾修辭", isCorrect: false },
+          { text: "觸覺摹寫與映襯修辭", isCorrect: false }
+        ],
+        mainExp: "作者用肉眼所見的傘狀爛泥形象（視覺），生動比擬為『打著雨傘似的地毯』（譬喻），將原本令人厭惡的泥濘寫得極富畫面感。",
+        examExp: "段考感官摹寫（視覺、聽覺、嗅覺）分析常考題。"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 精神意涵",
+        prompt: "文中寫道，清道夫「忠實的在各自的防區裡奔波」，這種精神與下列哪句成語意涵「最相符」？",
+        options: [
+          { text: "恪盡職守", isCorrect: true },
+          { text: "投機取巧", isCorrect: false },
+          { text: "好逸惡勞", isCorrect: false },
+          { text: "陽奉陰違", isCorrect: false }
+        ],
+        mainExp: "『恪盡職守』指謹慎認真地做好本職工作，正是張騰蛟筆下清潔工作者的核心美德。",
+        examExp: "段考成語與課文情境搭配考題。"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 詞義辨正",
+        prompt: "「一絲不苟」的「苟」字，其字義為何？",
+        options: [
+          { text: "草率、隨便", isCorrect: true },
+          { text: "如果、假如", isCorrect: false },
+          { text: "苟且偷生", isCorrect: false },
+          { text: "苟同、贊成", isCorrect: false }
+        ],
+        mainExp: "『苟』在此處作副詞用，意為『草率、隨便』；『一絲不苟』即連一絲一毫也不草率隨便。",
+        examExp: "注釋卷第 28 題原題轉化！段考字義高頻考點。"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 篇章主旨",
+        prompt: "張騰蛟在文章最後指出：「這才是真正的『人物』，這才是社會最需要的風範。」句中「人物」的真正涵義是什麼？",
+        options: [
+          { text: "身家千萬的大企業家", isCorrect: false },
+          { text: "名揚國際、位高權重的政治領袖", isCorrect: false },
+          { text: "在平凡崗位上默默奉獻、對社會有實質貢獻的平凡英雄", isCorrect: true },
+          { text: "外貌英俊瀟灑、才華洋溢的影視偶像", isCorrect: false }
+        ],
+        mainExp: "作者顛覆了世俗以權位金錢論英雄的狹隘偏見，認為默默耕耘、敬業樂群的基層勞動者，才是維繫社會安定的真正偉大人物。",
+        examExp: "注釋卷第 34 題原題核心！段考主旨與價值觀反思必考。"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 寫作結構",
+        prompt: "本文在結構上採取何種寫作順序？",
+        options: [
+          { text: "由近而遠、由點而面，先寫個別清掃動態，再昇華至全體清道夫的社會風範", isCorrect: true },
+          { text: "由大到小，先寫整個地球的環保問題，最後落實到個人衛生習慣", isCorrect: false },
+          { text: "全篇採用倒敘法，先寫清潔工退休後的落寞生活", isCorrect: false },
+          { text: "以爭辯對話的形式，展開清潔工與路人之間的言詞交鋒", isCorrect: false }
+        ],
+        mainExp: "文章由清晨的一位清潔婦人掃街特寫開始（由點），擴展至街道群像（由面），最後提升至對社會敬業風範的歌頌（昇華）。",
+        examExp: "記敘散文篇章結構分析常考題。"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 風雨無阻",
+        prompt: "「不論晴天、雨天，甚至颱風天，他們都在清晨黎明之前出動。」這句話表現出清潔隊員何種特質？",
+        options: [
+          { text: "被迫加班的無奈與怨尤", isCorrect: false },
+          { text: "不畏風霜、持之以恆的堅毅奉獻精神", isCorrect: true },
+          { text: "缺乏勞動法規保障的悲哀", isCorrect: false },
+          { text: "喜歡夜行生活的特殊生理習性", isCorrect: false }
+        ],
+        mainExp: "風雨無阻更見真情，在惡劣天候中依然堅守清掃崗位，體現高度負責的職業道德。",
+        examExp: "文意理解題：掌握文本情感傾向（崇敬與讚美）。"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 社會風範",
+        prompt: "文中提到的「敦厚風範」，最適合用下列哪句話來形容？",
+        options: [
+          { text: "事不關己，高高掛起", isCorrect: false },
+          { text: "各人自掃門前雪，休管他人瓦上霜", isCorrect: false },
+          { text: "默默耕耘、不求虛名、腳踏實地的純樸品格", isCorrect: true },
+          { text: "善於阿諛奉承，討好上司以求晉升", isCorrect: false }
+        ],
+        mainExp: "敦厚指寬厚淳樸、踏實穩健。基層清潔工不求名利回報，勤勉工作，正是社會最珍貴的道德基石。",
+        examExp: "注釋卷第 32、33 題核心概念轉化。"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 倒裝修辭",
+        prompt: "文中「最先迎著朝陽的，是他們；最後送走落日的，也是他們。」這句話運用了何種修辭技巧？",
+        options: [
+          { text: "映襯與倒裝", isCorrect: false },
+          { text: "排比與對偶（對稱句）", isCorrect: true },
+          { text: "層遞與誇飾", isCorrect: false },
+          { text: "回文與頂真", isCorrect: false }
+        ],
+        mainExp: "結構相同、字數相等、詞性相對，句型平穩對稱，既展現了朝暮奔波的辛苦，又增添了語言的節奏韻律美。",
+        examExp: "段考修辭綜合題：對偶、排比的句式判斷。"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 細節摹寫",
+        prompt: "「即使是地上的碎玻璃片，或者是卡在水溝縫隙裡的塑膠袋，他們也要彎下腰細心挑起。」這句話主要是為了證明什麼？",
+        options: [
+          { text: "清道夫的工作效率低下", isCorrect: false },
+          { text: "清道夫做事「一絲不苟」，細微處見責任心", isCorrect: true },
+          { text: "現代民眾丟棄垃圾的種類日益繁多", isCorrect: false },
+          { text: "清潔隊缺乏現代化機械清掃工具", isCorrect: false }
+        ],
+        mainExp: "透過細微處（碎玻璃、水溝縫隙）的細節描寫，印證『一絲不苟』絕非口號，而是具體體現在每一次彎腰與挑揀中。",
+        examExp: "段考『細節描寫的作用』考題。"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 敬業精神",
+        prompt: "近代啟蒙思想家梁啟超在〈敬業與樂業〉中主張「凡做一件事，便忠於一件事」，下列哪一位課文人物的作為正是這種精神的最佳寫照？",
+        options: [
+          { text: "十字街的獸醫汪大夫", isCorrect: false },
+          { text: "買白糖充數的差不多先生", isCorrect: false },
+          { text: "風雨無阻、清掃街道的清潔隊員", isCorrect: true },
+          { text: "遲到兩分鐘的鐵路乘客", isCorrect: false }
+        ],
+        mainExp: "忠於職守、從工作中體會尊嚴與價值，清潔隊員完全體現了敬業樂業的崇高境界。",
+        examExp: "跨文素養結合題：張騰蛟〈那默默的一群〉與梁啟超〈敬業與樂業〉理念互通。"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 語氣判斷",
+        prompt: "閱讀整篇〈那默默的一群〉，作者張騰蛟流露在字裡行間的情感基調是：",
+        options: [
+          { text: "冷眼旁觀的批判與諷刺", isCorrect: false },
+          { text: "充滿由衷的敬意、溫情與深切的感激", isCorrect: true },
+          { text: "無奈的哀嘆與憤怒控訴", isCorrect: false },
+          { text: "誇耀城市現代化市容的自豪滿意", isCorrect: false }
+        ],
+        mainExp: "作者全篇以崇敬溫暖的目光注視這群默默付出的勞動者，筆調真摯動人，洋溢人文關懷。",
+        examExp: "段考篇章情感風格掌握必考題。"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 環境映襯",
+        prompt: "作者特別選擇在「清晨破曉之前，全城尚在睡夢中」的時刻展開描寫，這樣的環境烘托有何藝術效果？",
+        options: [
+          { text: "以城市的寂靜沉睡，強烈襯托出清潔隊員起早貪黑的辛勞與默默奉獻", isCorrect: true },
+          { text: "說明清晨空氣清新，適合鍛鍊體能", isCorrect: false },
+          { text: "暗示此時街道沒有車輛干擾，工作起來最省力", isCorrect: false },
+          { text: "抱怨政府夜間清運垃圾政策不當", isCorrect: false }
+        ],
+        mainExp: "以安逸熟睡的群眾對比摸黑勞動的清潔工，形成鮮明映襯，更凸顯其『默默無名卻不可或缺』的奉獻本質。",
+        examExp: "段考寫作技巧題：環境烘托與映襯法之運用。"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 現代素養",
+        prompt: "身為國中生的我們，在日常校園與生活中，最能踐行本課精神並體恤清潔人員的做法是：",
+        options: [
+          { text: "做好垃圾分類、不隨地亂丟垃圾，減輕清潔人員的負擔", isCorrect: true },
+          { text: "每天拍照發在社群媒體上打卡宣傳", isCorrect: false },
+          { text: "只要不是自己的值日範圍，就可以隨手扔飲料杯", isCorrect: false },
+          { text: "見到清潔人員時刻意避開，以免打擾他們工作", isCorrect: false }
+        ],
+        mainExp: "真正的尊重與體恤是具體的行動：做好垃圾分類、源頭減量，維持環境整潔，就是對基層勞動者最好的回饋。",
+        examExp: "108 課綱核心素養實踐情境題。"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 詞語代稱",
+        prompt: "課文中「默默」兩字的含義，下列詮釋何者最切合課文主旨？",
+        options: [
+          { text: "工作時大家都不說話，氣氛沉悶冷清", isCorrect: false },
+          { text: "不求名利、不自我標榜，甘於在幕後做無名英雄", isCorrect: true },
+          { text: "生性害羞懦弱，不敢公開表達意見", isCorrect: false },
+          { text: "因地位卑微而受到社會排擠與歧視", isCorrect: false }
+        ],
+        mainExp: "『默默』象徵一種淡泊沉穩的奉獻美德，不敲鑼打鼓求表揚，只求把分內之事做到最好。",
+        examExp: "文意理解題：掌握課文關鍵字眼『默默』的深層寓意。"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 易錯字辨析",
+        prompt: "下列各組詞語中的「ㄋㄧㄥˋ」字，何者字形與「泥濘」的「濘」完全相同？",
+        options: [
+          { text: "泥「ㄋㄧㄥˋ」不堪", isCorrect: true },
+          { text: "叮「ㄋㄧㄥˊ」囑咐", isCorrect: false },
+          { text: "「ㄋㄧㄥˇ」緊開關", isCorrect: false },
+          { text: "面目猙「ㄋㄧㄥˊ」", isCorrect: false },
+        ],
+        mainExp: "泥「濘」（水部）、叮「嚀」（口部）、面目猙「獰」（犬部）、「擰」螺絲（手部）。",
+        examExp: "段考字音字形與課文整合題！"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 文體歸類",
+        prompt: "關於張騰蛟〈那默默的一群〉的體裁歸屬，下列何者正確？",
+        options: [
+          { text: "記敘抒情散文", isCorrect: true },
+          { text: "諷刺短篇寓言", isCorrect: false },
+          { text: "文言論說傳記", isCorrect: false },
+          { text: "長篇章回小說", isCorrect: false }
+        ],
+        mainExp: "本文結合記敘（清道夫工作實況）與抒情說理（讚美敬業風範與基層人物），是一篇優美的現代散文。",
+        examExp: "段考文體辨別基礎題。"
+      },
+      {
+        cat: "l06",
+        lesson: "那默默的一群 • 總結啟發",
+        prompt: "「行行出狀元，處處有榜樣。」〈那默默的一群〉給予青年學子最重要的人生指引是：",
+        options: [
+          { text: "只有當上大官或名人，生命才算有價值", isCorrect: false },
+          { text: "職業無分貴賤，只要認真投入並恪盡職守，平凡人也能展現不凡的生命光輝", isCorrect: true },
+          { text: "清晨起床太辛苦，未來找工作應該避開勞動行業", isCorrect: false },
+          { text: "社會競爭殘酷，必須踩在他人頭上才能出人頭地", isCorrect: false }
+        ],
+        mainExp: "生命的偉大不在於職位的高低，而在於對待工作的態度與對社會的真誠奉獻。",
+        examExp: "段考文章主旨情意昇華題。"
+      },
+
+      /* --- 語文常識二：閱讀策略與資料檢索 (20 題) --- */
+      {
+        cat: "lang",
+        lesson: "語常二 • 閱讀策略",
+        prompt: "閱讀策略中的「5W1H（六何法）」常被用來快速梳理文章重點。下列對應何者「錯誤」？",
+        options: [
+          { text: "Who：事件的主角或相關人物", isCorrect: false },
+          { text: "Where：事件發生的地點空間", isCorrect: false },
+          { text: "Why：事件發生的經過細節與解決方法", isCorrect: true },
+          { text: "When：事件發生的時間點或時代背景", isCorrect: false }
+        ],
+        mainExp: "『Why』是探討事情發生的『原因或動機』；探討經過細節與解決方法的是『How』。",
+        examExp: "二段語文常識二必考重點！牢記 5W1H 六何法標準對應。"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 閱讀方法",
+        prompt: "小華明天就要進行段考，他想在半小時內快速掌握課本四大章節的核心標題與段落大意，他應該優先採用哪種閱讀策略？",
+        options: [
+          { text: "精讀（逐字逐句深究修辭與文法）", isCorrect: false },
+          { text: "瀏覽或略讀（快速掃視目錄、單元導讀與小標題）", isCorrect: true },
+          { text: "抄讀（將整本課文從頭到尾手抄一遍）", isCorrect: false },
+          { text: "朗讀（大聲朗誦課文直到聲音沙啞）", isCorrect: false },
+        ],
+        mainExp: "『瀏覽／略讀』適合在有限時間內快速鳥瞰全書架構、抓取核心大意；『精讀』則適合用於細部理解與深刻賞析。",
+        examExp: "段考生活素養情境題：精讀 vs 略讀 vs 瀏覽的適用時機。"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 部首檢字法",
+        prompt: "利用《國語辭典》的「部首檢字法」查閱生字時，正確的檢索步驟順序為何？①在檢字表中扣除部首筆畫查出頁碼 ②在部首目錄中查出部首所在的檢字表頁碼 ③數出該字部首的筆畫數 ④翻至正文查得該字音義",
+        options: [
+          { text: "③②①④", isCorrect: true },
+          { text: "①②③④", isCorrect: false },
+          { text: "②③①④", isCorrect: false },
+          { text: "③①②④", isCorrect: false }
+        ],
+        mainExp: "步驟：先算部首筆畫（③）→部首目錄找部首（②）→算除部首外的剩餘筆畫在檢字表找字（①）→翻正文看字音義（④）。",
+        examExp: "段考字典檢字步驟必考經典排順序題！"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 特殊部首辨識",
+        prompt: "下列哪一個字的部首判定是「錯誤」的？",
+        options: [
+          { text: "「民」的部首是「氏」部", isCorrect: false },
+          { text: "「承」的部首是「手」部", isCorrect: false },
+          { text: "「年」的部首是「干」部", isCorrect: false },
+          { text: "「凹」的部首是「口」部", isCorrect: true }
+        ],
+        mainExp: "「凹」與「凸」的部首都是「凵」部（音ㄑㄩˇ），不是口部！其餘三者皆為正確的特殊部首。",
+        examExp: "二段語常二大魔王考點！凹凸（凵部）、民（氏部）、承（手部）、年（干部）必考！"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 剩餘筆畫計算",
+        prompt: "小明想用部首檢字法查「閣」字。已知「閣」字屬於「門」部（門部8畫），他在檢字表中應查詢門部「幾畫」的欄位？",
+        options: [
+          { text: "6 畫（各）", isCorrect: true },
+          { text: "14 畫（總筆劃）", isCorrect: false },
+          { text: "8 畫（門）", isCorrect: false },
+          { text: "5 畫", isCorrect: false }
+        ],
+        mainExp: "「閣」字總筆畫14畫，扣除部首「門」部8畫，右側「各」為6畫，所以在檢字表中應查門部「6畫」。",
+        examExp: "常考陷阱題：檢字表必須『扣除部首筆畫』，不可直接查總筆畫！"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 注音檢字法",
+        prompt: "使用辭典的「注音檢字法」檢索詞語時，詞語的排列依據為何？",
+        options: [
+          { text: "字首的部首筆畫數多寡", isCorrect: false },
+          { text: "依注音符號順序（ㄅㄆㄇㄈ…）與聲調（一聲、二聲、三聲、四聲、輕聲）依序排列", isCorrect: true },
+          { text: "依教育部公布的筆順原則", isCorrect: false },
+          { text: "依詞語的筆劃多寡與字義褒貶", isCorrect: false }
+        ],
+        mainExp: "注音檢字法依37個注音符號（聲母、介母、韻母）順序排列，相同音節則按一、二、三、四聲及輕聲先後排列。",
+        examExp: "段考字音排序題基礎常識。"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 工具書分類",
+        prompt: "想要了解「臺灣光復以來歷年人口成長統計數據與年度重大紀事」，最適合查閱下列哪一種工具書？",
+        options: [
+          { text: "《中華民國年鑑》", isCorrect: true },
+          { text: "《國語活用辭典》", isCorrect: false },
+          { text: "《成語典》", isCorrect: false },
+          { text: "《古今圖書集成》", isCorrect: false }
+        ],
+        mainExp: "『年鑑』是按年度有系統記載該年各領域重大事件、數據與統計資料的工具書，適合查閱最新年度發展狀況。",
+        examExp: "工具書分類（辭典、字典、年鑑、百科全書、書目、索引）常考題！"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 工具書功能",
+        prompt: "想要全面且深入了解「黑洞的物理原理、形成原因、觀測歷史及相關天文科學家」，最適當的參考工具書是：",
+        options: [
+          { text: "《天文百科全書》", isCorrect: true },
+          { text: "《唐詩三百首索引》", isCorrect: false },
+          { text: "《重編國語辭典修訂本》", isCorrect: false },
+          { text: "《台灣省通志》", isCorrect: false }
+        ],
+        mainExp: "『百科全書』匯集各學科專門知識，內容廣博詳盡，適合進行主題式的深度研究與綜觀了解。",
+        examExp: "工具書功能區分：單詞查辭典，主題深度查百科全書。"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 檢索邏輯",
+        prompt: "在網路搜尋引擎中，如果小華想找「李白」的詩，但想「排除」所有提到「杜甫」的網頁，他應該使用何種布林邏輯運算子？",
+        options: [
+          { text: "李白 NOT 杜甫（或 李白 -杜甫）", isCorrect: true },
+          { text: "李白 AND 杜甫", isCorrect: false },
+          { text: "李白 OR 杜甫", isCorrect: false },
+          { text: "李白 WITH 杜甫", isCorrect: false }
+        ],
+        mainExp: "『NOT』或減號『-』用來排除特定關鍵字；『AND』代表同時具備；『OR』代表兩者具其一即可。",
+        examExp: "現代資訊素養常考：布林邏輯（AND、OR、NOT）在搜尋中的實際應用。"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 搜尋策略",
+        prompt: "想要查詢「新北市立錦和高中」今年的國中部會考成績與錄取榜單，下列何者是「最精準且具公信力」的關鍵字組合與搜尋策略？",
+        options: [
+          { text: "錦和高中 會考 榜單 site:jhsh.ntpc.edu.tw", isCorrect: true },
+          { text: "學校 好棒 會考", isCorrect: false },
+          { text: "台灣 國中 會考 歷史 考古題", isCorrect: false },
+          { text: "中和區 哪所學校最好玩", isCorrect: false }
+        ],
+        mainExp: "使用精確學校名稱 + 核心主題關鍵字，並利用『site:學校網址』限定在官方學校網站內搜尋，最為精準權威。",
+        examExp: "108 課綱數位素養題：精準關鍵字與網址語法限定。"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 資料評估",
+        prompt: "在網路檢索資料完成課堂專題報告時，下列哪種做法「最能確保」資料的正確性與學術可信度？",
+        options: [
+          { text: "點擊搜尋結果第一頁的第一個未署名部落格農場文章直接複製貼上", isCorrect: false },
+          { text: "優先採用學術機構、教育部官方網站或權威專業期刊發布的文獻，並相互比對查證", isCorrect: true },
+          { text: "挑選社群媒體上按讚數最多、留言爭吵最激烈的貼文內容", isCorrect: false },
+          { text: "只看標題吸引人的爆料新聞網頁", isCorrect: false }
+        ],
+        mainExp: "網路資訊真偽混雜，具備『查證來源權威性、確認作者機構、多方交叉比對』是現代學生不可或缺的媒體素養。",
+        examExp: "會考與段考素養導向：假訊息防範與資訊查核能力。"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 筆畫檢字法",
+        prompt: "小王想查一個不知道讀音、也不認得部首的罕見字，辭典中的哪一種檢索法最適合他使用？",
+        options: [
+          { text: "總筆畫檢字法（難檢字表）", isCorrect: true },
+          { text: "注音檢字法", isCorrect: false },
+          { text: "部首檢字法", isCorrect: false },
+          { text: "拼音檢字法", isCorrect: false }
+        ],
+        mainExp: "不知音、難辨部首時，辭典附錄通常設有『難檢字表／總筆畫檢字表』，只要數清該字總筆劃數即可查閱。",
+        examExp: "工具書檢字法盲區應對：難檢字表專查特殊字。"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 部首判定原則",
+        prompt: "若一個字同時具備左右兩個看似部首的結構（如「頂」由「頁」與「丁」組成），通常依何種傳統原則判定其部首？",
+        options: [
+          { text: "「形聲取形，會意取意」或「左形右聲取左部」", isCorrect: true },
+          { text: "隨機擲骰子決定", isCorrect: false },
+          { text: "一律取筆畫較多的一側", isCorrect: false },
+          { text: "一律取最下面的一筆", isCorrect: false }
+        ],
+        mainExp: "漢字造字六書以形聲最多（形旁表意、聲旁表音）。『頂』字從頁丁聲（頁指人頭頂），故屬『頁』部。",
+        examExp: "段考部首進階題：形聲字的形符即為部首所在。"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 摘錄要點",
+        prompt: "在為長篇文章做「摘要」時，下列技巧何者「不恰當」？",
+        options: [
+          { text: "刪除次要的修飾形容詞與重複說明的冗長事例", isCorrect: false },
+          { text: "保留各段落的主題句（中心思想）", isCorrect: false },
+          { text: "將原作者的論點全數刪除，全篇換上自己的日記心得", isCorrect: true },
+          { text: "用精練的語句將核心概念串聯重組", isCorrect: false }
+        ],
+        mainExp: "做摘要的宗旨是『忠實客觀呈現原文核心骨架』，絕不能隨意刪改作者主旨換成個人無關心得。",
+        examExp: "閱讀理解與摘要策略評量題。"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 心智圖應用",
+        prompt: "在閱讀記敘文或論說文時繪製「心智圖（Mind Map）」，主要有助於提升讀者的哪種能力？",
+        options: [
+          { text: "理清文章架構層次、掌握概念關聯與視覺化邏輯記憶", isCorrect: true },
+          { text: "讓書法筆跡變得更加美觀工整", isCorrect: false },
+          { text: "迅速查到字典裡所有字詞的古文字形", isCorrect: false },
+          { text: "完全取代課堂考試，不需動筆寫作", isCorrect: false }
+        ],
+        mainExp: "心智圖是極佳的圖像化閱讀策略，透過中心主題向外放射分支，能將複雜的文本邏輯脈絡結構化呈現。",
+        examExp: "閱讀策略新興工具（心智圖、魚骨圖、時間軸）觀念題。"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 成語工具書",
+        prompt: "若想查詢成語「功虧一簣」的典故由來、歷代出處、同反義詞與造句示範，最合適的專門工具書是：",
+        options: [
+          { text: "教育部《成語典》", isCorrect: true },
+          { text: "《世界地圖集》", isCorrect: false },
+          { text: "《古漢語常用字字典》", isCorrect: false },
+          { text: "《名人錄》", isCorrect: false }
+        ],
+        mainExp: "專門性工具書針對特定領域深入收錄，教育部《成語典》詳載典源、釋義、書證與成語辨析，最為合適。",
+        examExp: "工具書適用性判斷考題。"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 字典附錄知識",
+        prompt: "一般實體大型國語辭典的附錄中，通常「不會」收錄下列哪一項實用參考資料？",
+        options: [
+          { text: "標點符號用法表", isCorrect: false },
+          { text: "歷代帝王年表或中西紀年對照表", isCorrect: false },
+          { text: "明年度所有學生的個人手機號碼與住家地址", isCorrect: true },
+          { text: "注音符號與漢語拼音對照表", isCorrect: false }
+        ],
+        mainExp: "辭典附錄多為語文常識、度量衡換算、歷史紀年或拼音對照表，絕不可能收錄侵害隱私的個人電話住址。",
+        examExp: "趣味常識題：熟悉字典附錄各項實用功能。"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 檢字法比較",
+        prompt: "下列關於漢字四大檢字法的優缺點比較，何者敘述正確？",
+        options: [
+          { text: "注音檢字法最容易上手，但前提是必須知道該字的正確讀音", isCorrect: true },
+          { text: "部首檢字法完全不需要知道任何筆劃或部首就能查到", isCorrect: false },
+          { text: "四角號碼檢字法是現代小學生最常用的第一優先檢字法", isCorrect: false },
+          { text: "所有字典都只有注音一種檢字方式", isCorrect: false }
+        ],
+        mainExp: "注音檢字法按音索字最為直覺迅速，但遇到生僻字不知讀音時就英雄無用武之地，必須改用部首或筆畫檢索。",
+        examExp: "段考檢字法比較統整題。"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 資訊著作權",
+        prompt: "在網路檢索資料並引用他人文章或研究圖片時，依據智慧財產權與學術倫理，下列做法何者「合法且正確」？",
+        options: [
+          { text: "將他人作品複製後改簽自己的名字參賽", isCorrect: false },
+          { text: "清楚註明作者姓名、文章篇名、網址連結及出處來源，並符合合理使用原則", isCorrect: true },
+          { text: "把原作者網頁上的版權宣告偷偷刪除", isCorrect: false },
+          { text: "在網路上公開販售他人免費發布的教學教材圖表", isCorrect: false }
+        ],
+        mainExp: "引用他人智慧結晶必須遵守著作權法：註明出處來源（尊重原創），避免抄襲與侵權行為。",
+        examExp: "現代公民數位素養與智財權觀念題。"
+      },
+      {
+        cat: "lang",
+        lesson: "語常二 • 閱讀素養總結",
+        prompt: "「工欲善其事，必先利其器。」熟練掌握閱讀策略與各類工具書檢索技巧，對中學生的最大益處是：",
+        options: [
+          { text: "能成為自主學習者，在知識海洋中迅速有效率地解決問題、拓展視野", isCorrect: true },
+          { text: "考試時可以把辭典偷藏在口袋作弊", isCorrect: false },
+          { text: "以後上課都不用認真聽老師講解", isCorrect: false },
+          { text: "只要買很多工具書放在書架上就能自動拿高分", isCorrect: false }
+        ],
+        mainExp: "108 課綱的核心是培養『終身自主學習能力』。工具書與檢索策略就是開拓知識大門的關鍵鑰匙。",
+        examExp: "語文常識單元總結素養題。"
+      }
+    ];
+
+    /* =========================================================================
+     * 4. 網頁原生音效引擎 (Web Audio API)
+     * ========================================================================= */
+    let audioCtx = null;
+    let isSoundOn = true;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function playTone(freq, type, duration, delay = 0) {
+      if (!isSoundOn) return;
+      initAudio();
+      setTimeout(() => {
+        try {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + duration);
+        } catch(e) {}
+      }, delay);
+    }
+
+    function playSound(name) {
+      if (!isSoundOn) return;
+      initAudio();
+      if (name === 'correct') {
+        playTone(523.25, 'sine', 0.1, 0);   // C5
+        playTone(659.25, 'sine', 0.1, 70);  // E5
+        playTone(783.99, 'sine', 0.25, 140);// G5
+      } else if (name === 'wrong') {
+        playTone(220, 'sawtooth', 0.15, 0);
+        playTone(174.6, 'sawtooth', 0.35, 120);
+      } else if (name === 'flip') {
+        playTone(440, 'triangle', 0.05, 0);
+      } else if (name === 'tick') {
+        playTone(800, 'square', 0.03, 0);
+      } else if (name === 'victory') {
+        playTone(523, 'sine', 0.12, 0);
+        playTone(659, 'sine', 0.12, 80);
+        playTone(783, 'sine', 0.12, 160);
+        playTone(1046, 'sine', 0.4, 240);
+      }
+    }
+
+    function toggleSound() {
+      isSoundOn = !isSoundOn;
+      document.getElementById('sound-icon').innerText = isSoundOn ? '🔊' : '🔇';
+    }
+
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(()=>{});
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    }
+
+    /* =========================================================================
+     * 5. 頂部模式切換
+     * ========================================================================= */
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-indigo-600', 'text-white', 'shadow-md');
+        btn.classList.add('text-slate-600');
+      });
+
+      const activeContent = document.getElementById(`section-${tabId}`);
+      if (activeContent) activeContent.classList.remove('hidden');
+
+      const activeBtn = document.getElementById(`tab-${tabId}`);
+      if (activeBtn) {
+        activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-md');
+        activeBtn.classList.remove('text-slate-600');
+      }
+
+      if (tabId === 'battle') initBattleModule();
+      if (tabId === 'flashcard') renderCurrentFlashcard();
+      if (tabId === 'comprehension') loadCompQuestion(compQIndex);
+    }
+
+    /* =========================================================================
+     * 6. 模組三：雙人手寫 PK 與全新 8x8 格網容錯批改引擎
+     * ========================================================================= */
+    let p1Canvas, p2Canvas, p1Ctx, p2Ctx;
+    let isDrawingP1 = false, isDrawingP2 = false;
+    let p1Strokes = 0, p2Strokes = 0;
+    let p1Score = 0, p2Score = 0;
+    let battleIndex = 1;
+    let currentPkPool = [...pkQuestions];
+    let currentQ = pkQuestions[1];
+    let gradingStandard = "normal"; // 預設為「一般 (60分及格)」，精準區分工整與潦草！
+
+    // 教育部常用字筆劃數對照表 (用於防範用極少筆劃敷衍草寫)
+    const STROKE_MAP = {
+      "腦": 13, "惱": 12, "櫃": 18, "匱": 14, "簣": 18, "潰": 15,
+      "賠": 15, "陪": 11, "培": 11, "焙": 12, "僻": 15, "辟": 13,
+      "避": 17, "壁": 16, "璧": 18, "癖": 18, "惰": 12, "墮": 15,
+      "橢": 17, "妥": 7, "隨": 17, "差": 10, "遣": 13, "巷": 9,
+      "弄": 7, "默": 16, "墨": 15, "歿": 8, "莫": 10, "騰": 20, "蛟": 12, "適": 15, "之": 4,
+      "孔": 4, "子": 3, "論": 15, "語": 14, "朋": 8, "習": 11,
+      "說": 14, "慍": 13, "恕": 10, "山": 3, "仁": 4, "知": 8,
+      "勇": 9, "惑": 12, "懼": 21, "憂": 15, "齊": 14, "慎": 13,
+      "終": 11, "追": 10, "遠": 14, "德": 15, "歸": 18, "厚": 9,
+      "篇": 15, "偏": 11, "遍": 13, "翩": 15, "編": 15, "蝙": 15,
+      "擰": 17, "嚀": 17, "濘": 17, "獰": 17, "撇": 15, "瞥": 16,
+      "憋": 15, "彆": 19, "汪": 7, "大": 3, "夫": 4, "鋪": 15,
+      "夥": 14, "計": 9, "隸": 17, "陝": 9, "西": 6, "相": 9,
+      "苟": 8, "荀": 9, "筍": 12, "絕": 12, "決": 7, "抉": 7,
+      "塑": 13, "樸": 16, "璞": 16, "僕": 14, "撲": 15, "烽": 11,
+      "鳴": 14, "嗚": 13, "溫": 12, "瘟": 14, "擇": 16, "澤": 16,
+      "繹": 19, "驛": 23, "譯": 20, "朽": 6, "巧": 5, "磋": 14,
+      "蹉": 17, "疆": 19, "韁": 19, "僵": 15, "殭": 17
+    };
+
+    function getExpectedStrokes(ans, isZhuyin) {
+      if (isZhuyin) {
+        const tones = ['ˊ', 'ˇ', 'ˋ', '˙', '‧'];
+        let count = 0;
+        for (let ch of ans) {
+          if (tones.includes(ch)) count += 1;
+          else count += 2;
+        }
+        return Math.max(2, count);
+      }
+      return STROKE_MAP[ans] || 10;
+    }
+
+    function toggleGradingStandard() {
+      if (gradingStandard === 'normal') {
+        gradingStandard = 'strict';
+        document.getElementById('grading-standard-text').innerText = '嚴格抓醜 (75分)';
+        document.getElementById('btn-grading-standard').className = "px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-800 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm";
+      } else if (gradingStandard === 'strict') {
+        gradingStandard = 'loose';
+        document.getElementById('grading-standard-text').innerText = '寬鬆 (45分)';
+        document.getElementById('btn-grading-standard').className = "px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm";
+      } else {
+        gradingStandard = 'normal';
+        document.getElementById('grading-standard-text').innerText = '一般 (60分)';
+        document.getElementById('btn-grading-standard').className = "px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 text-indigo-800 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm";
+      }
+    }
+
+    function initBattleModule() {
+      p1Canvas = document.getElementById('canvas-p1');
+      p2Canvas = document.getElementById('canvas-p2');
+      if (!p1Canvas || !p2Canvas) return;
+      p1Ctx = p1Canvas.getContext('2d');
+      p2Ctx = p2Canvas.getContext('2d');
+
+      setupDrawingEvents(p1Canvas, p1Ctx, 'p1');
+      setupDrawingEvents(p2Canvas, p2Ctx, 'p2');
+      loadBattleQuestion(battleIndex);
+    }
+
+    function setupDrawingEvents(canvas, ctx, player) {
+      ctx.lineWidth = 14;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#0f172a';
+
+      // 獨立追蹤該畫布所有多點觸控 (支援兩人同時在觸控大屏書寫，各畫布完全隔離，絕不跨板連線)
+      const activePointers = new Map();
+
+      function getPointerPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: (e.clientX - rect.left) * (canvas.width / rect.width),
+          y: (e.clientY - rect.top) * (canvas.height / rect.height)
+        };
+      }
+
+      function handleStart(id, pos) {
+        activePointers.set(id, pos);
+        // 落墨起點畫一個實心圓點 (點擊也能落墨)
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, ctx.lineWidth / 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (player === 'p1') {
+          p1Strokes++;
+          const wm = document.getElementById('p1-watermark');
+          if (wm) wm.classList.add('hidden');
+          const st = document.getElementById('p1-status-tag');
+          if (st) st.innerText = "正在書寫...";
+        } else {
+          p2Strokes++;
+          const wm = document.getElementById('p2-watermark');
+          if (wm) wm.classList.add('hidden');
+          const st = document.getElementById('p2-status-tag');
+          if (st) st.innerText = "正在書寫...";
+        }
+      }
+
+      function handleMove(id, pos) {
+        if (!activePointers.has(id)) return;
+        const last = activePointers.get(id);
+        ctx.beginPath();
+        ctx.moveTo(last.x, last.y);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+        activePointers.set(id, pos);
+      }
+
+      function handleEnd(id) {
+        if (activePointers.has(id)) {
+          activePointers.delete(id);
+        }
+      }
+
+      // 1. 優先採用現代標準 Pointer Events (專門支援 Windows 觸控屏、大尺寸互動白板雙人多點觸控)
+      if (window.PointerEvent) {
+        canvas.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          try { canvas.setPointerCapture(e.pointerId); } catch(err){}
+          handleStart(e.pointerId, getPointerPos(e));
+        }, { passive: false });
+
+        canvas.addEventListener('pointermove', (e) => {
+          e.preventDefault();
+          handleMove(e.pointerId, getPointerPos(e));
+        }, { passive: false });
+
+        const endPointer = (e) => {
+          e.preventDefault();
+          try { canvas.releasePointerCapture(e.pointerId); } catch(err){}
+          handleEnd(e.pointerId);
+        };
+        canvas.addEventListener('pointerup', endPointer, { passive: false });
+        canvas.addEventListener('pointercancel', endPointer, { passive: false });
+        canvas.addEventListener('lostpointercapture', endPointer);
+      }
+
+      // 2. 原生滑鼠事件雙重保險 (確保滑鼠、筆電觸控板 100% 能流暢書寫)
+      let isMouseDown = false;
+      canvas.addEventListener('mousedown', (e) => {
+        if (activePointers.size > 0 && e.pointerId !== undefined) return;
+        isMouseDown = true;
+        handleStart('mouse', getPointerPos(e));
+      });
+      canvas.addEventListener('mousemove', (e) => {
+        if (!isMouseDown) return;
+        handleMove('mouse', getPointerPos(e));
+      });
+      const stopMouse = () => {
+        if (isMouseDown) {
+          isMouseDown = false;
+          handleEnd('mouse');
+        }
+      };
+      canvas.addEventListener('mouseup', stopMouse);
+      canvas.addEventListener('mouseleave', stopMouse);
+      window.addEventListener('mouseup', stopMouse);
+
+      // 3. 舊式觸控後備 (按 Touch Identifier 分流，避免抓錯另一邊畫布)
+      canvas.addEventListener('touchstart', (e) => {
+        if (window.PointerEvent && activePointers.size > 0) return;
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          const rect = canvas.getBoundingClientRect();
+          const pos = {
+            x: (t.clientX - rect.left) * (canvas.width / rect.width),
+            y: (t.clientY - rect.top) * (canvas.height / rect.height)
+          };
+          handleStart('touch_' + t.identifier, pos);
+        }
+      }, { passive: false });
+
+      canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          const rect = canvas.getBoundingClientRect();
+          const pos = {
+            x: (t.clientX - rect.left) * (canvas.width / rect.width),
+            y: (t.clientY - rect.top) * (canvas.height / rect.height)
+          };
+          handleMove('touch_' + t.identifier, pos);
+        }
+      }, { passive: false });
+
+      const stopTouch = (e) => {
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          handleEnd('touch_' + e.changedTouches[i].identifier);
+        }
+      };
+      canvas.addEventListener('touchend', stopTouch, { passive: false });
+      canvas.addEventListener('touchcancel', stopTouch, { passive: false });
+    }
+
+    function clearCanvas(player) {
+      const canvas = (player === 'p1') ? p1Canvas : p2Canvas;
+      const ctx = (player === 'p1') ? p1Ctx : p2Ctx;
+      if (!canvas || !ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const wm = document.getElementById(`${player}-watermark`);
+      if (wm) wm.classList.remove('hidden');
+      const stp = document.getElementById(`${player}-stamp`);
+      if (stp) stp.classList.add('hidden');
+      const st = document.getElementById(`${player}-status-tag`);
+      if (st) st.innerText = "已清除畫布";
+      const readyBtn = document.getElementById(`${player}-ready-btn`);
+      if (readyBtn) {
+        readyBtn.innerHTML = `<span>✋</span> 完成舉手`;
+        readyBtn.dataset.ready = "false";
+        if (player === 'p1') {
+          p1Strokes = 0;
+          readyBtn.className = "flex-1 py-3.5 bg-rose-500 hover:bg-rose-600 active:scale-98 text-white font-black text-base rounded-2xl shadow-md transition flex items-center justify-center gap-2";
+        } else {
+          p2Strokes = 0;
+          readyBtn.className = "flex-1 py-3.5 bg-blue-500 hover:bg-blue-600 active:scale-98 text-white font-black text-base rounded-2xl shadow-md transition flex items-center justify-center gap-2";
+        }
+      }
+    }
+
+    function clearBothCanvases() {
+      clearCanvas('p1');
+      clearCanvas('p2');
+    }
+
+    function togglePlayerReady(player) {
+      const btn = document.getElementById(`${player}-ready-btn`);
+      if (!btn) return;
+      const isReady = btn.dataset.ready === "true";
+      if (!isReady) {
+        btn.dataset.ready = "true";
+        btn.className = "flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-base rounded-2xl shadow-md transition flex items-center justify-center gap-2";
+        btn.innerHTML = `<span>✓</span> 已完成舉手！`;
+        playSound('correct');
+        const st = document.getElementById(`${player}-status-tag`);
+        if (st) st.innerText = "選手已作答完畢！";
+      } else {
+        btn.dataset.ready = "false";
+        btn.innerHTML = `<span>✋</span> 完成舉手`;
+        if (player === 'p1') btn.className = "flex-1 py-3.5 bg-rose-500 hover:bg-rose-600 text-white font-black text-base rounded-2xl shadow-md transition flex items-center justify-center gap-2";
+        else btn.className = "flex-1 py-3.5 bg-blue-500 hover:bg-blue-600 text-white font-black text-base rounded-2xl shadow-md transition flex items-center justify-center gap-2";
+      }
+    }
+
+    function onFilterChange() {
+      const filter = document.getElementById('pk-filter-select').value;
+      if (filter === 'all') currentPkPool = [...pkQuestions];
+      else if (filter === 'char') currentPkPool = pkQuestions.filter(q => q.type === "寫出國字");
+      else if (filter === 'phone') currentPkPool = pkQuestions.filter(q => q.type === "寫出注音");
+      else if (filter === 'tone') currentPkPool = pkQuestions.filter(q => q.isTone);
+
+      document.getElementById('battle-total-num').innerText = currentPkPool.length;
+      battleIndex = 0;
+      loadBattleQuestion(0);
+    }
+
+    function loadBattleQuestion(idx) {
+      if (!currentPkPool || currentPkPool.length === 0) currentPkPool = [...pkQuestions];
+      if (idx >= currentPkPool.length) idx = 0;
+      if (idx < 0) idx = currentPkPool.length - 1;
+      battleIndex = idx;
+      currentQ = currentPkPool[battleIndex];
+
+      clearBothCanvases();
+      const banner = document.getElementById('answer-reveal-banner');
+      if (banner) banner.classList.add('hidden');
+
+      const rNum = document.getElementById('battle-round-num');
+      if (rNum) rNum.innerText = battleIndex + 1;
+      const tNum = document.getElementById('battle-total-num');
+      if (tNum) tNum.innerText = currentPkPool.length;
+      const typeText = document.getElementById('pk-type-text');
+      if (typeText) typeText.innerText = currentQ.type;
+      const refText = document.getElementById('pk-origin-ref');
+      if (refText) refText.innerText = `原卷 #${currentQ.id}`;
+
+      const pre = document.getElementById('pk-text-prefix');
+      if (pre) pre.innerText = currentQ.prefix;
+      const tgt = document.getElementById('pk-target-box');
+      if (tgt) tgt.innerText = currentQ.target;
+      const suf = document.getElementById('pk-text-suffix');
+      if (suf) suf.innerText = currentQ.suffix;
+
+      const revAns = document.getElementById('reveal-ans-text');
+      if (revAns) revAns.innerText = currentQ.ans;
+      const revHint = document.getElementById('reveal-hint-text');
+      if (revHint) revHint.innerText = `（${currentQ.hint}）`;
+    }
+
+    function nextBattleQuestion() {
+      loadBattleQuestion(battleIndex + 1);
+      playSound('flip');
+    }
+
+    function randomBattleQuestion() {
+      const rnd = Math.floor(Math.random() * currentPkPool.length);
+      loadBattleQuestion(rnd);
+      playSound('flip');
+    }
+
+    function revealAnswer() {
+      const banner = document.getElementById('answer-reveal-banner');
+      if (banner) banner.classList.remove('hidden');
+      playSound('correct');
+    }
+
+    // 計算畫布墨跡緊湊邊界 (Tight Inking Bounding Box)
+    function getTightBounds(canvas) {
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      const data = ctx.getImageData(0, 0, w, h).data;
+      let minX = w, maxX = 0, minY = h, maxY = 0, blackPixels = 0;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const idx = (y * w + x) * 4;
+          if (data[idx + 3] > 35) {
+            blackPixels++;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      if (blackPixels < 10) return { minX: 0, minY: 0, maxX: w, maxY: h, width: w, height: h, count: 0 };
+      return { minX, minY, maxX, maxY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY), count: blackPixels };
+    }
+
+    // 多解析度密度特徵向量提取 (16x16 細粒度抓部首結構，8x8 粗粒度抓整體重心配比)
+    function getNormalizedDensityVector(canvas, sx, sy, sw, sh, N) {
+      const temp = document.createElement('canvas');
+      temp.width = 128;
+      temp.height = 128;
+      const tctx = temp.getContext('2d');
+      // 將字體緊湊邊界等比縮放居中至 128x128，周圍留 6px 邊界
+      tctx.drawImage(canvas, sx, sy, sw, sh, 6, 6, 116, 116);
+      const imgData = tctx.getImageData(0, 0, 128, 128).data;
+
+      const vec = new Float32Array(N * N);
+      const cellW = 128 / N;
+      const cellH = 128 / N;
+
+      for (let by = 0; by < N; by++) {
+        const yStart = Math.floor(by * cellH);
+        const yEnd = Math.floor((by + 1) * cellH);
+        for (let bx = 0; bx < N; bx++) {
+          const xStart = Math.floor(bx * cellW);
+          const xEnd = Math.floor((bx + 1) * cellW);
+          let count = 0;
+          for (let y = yStart; y < yEnd; y++) {
+            for (let x = xStart; x < xEnd; x++) {
+              const idx = (y * 128 + x) * 4;
+              if (imgData[idx + 3] > 30) count++;
+            }
+          }
+          vec[by * N + bx] = count;
+        }
+      }
+
+      // L2 正規化
+      let norm = 0;
+      for (let i = 0; i < N * N; i++) norm += vec[i] * vec[i];
+      norm = Math.sqrt(norm) || 1;
+      for (let i = 0; i < N * N; i++) vec[i] /= norm;
+      return vec;
+    }
+
+    function calcCosineSim(v1, v2, len) {
+      let dot = 0;
+      for (let i = 0; i < len; i++) dot += v1[i] * v2[i];
+      return dot;
+    }
+
+    /* 解析注音符號本體與聲調 */
+    function parseZhuyin(text) {
+      const tones = ['ˊ', 'ˇ', 'ˋ', '˙', '‧'];
+      let tone = '';
+      let body = '';
+      for (let ch of text) {
+        if (tones.includes(ch)) tone = (ch === '‧') ? '˙' : ch;
+        else body += ch;
+      }
+      return { body, tone };
+    }
+
+    /* 智慧檢測注音手寫聲調 (四聲ˋ、二聲ˊ、三聲ˇ、一聲無調、輕聲˙) */
+    function detectZhuyinTone(canvas, bounds) {
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      const imgData = ctx.getImageData(0, 0, w, h).data;
+      const toneLeft = bounds.minX + bounds.width * 0.70;
+      let tonePixels = 0;
+      let sumX = 0, sumY = 0;
+      let points = [];
+
+      for (let y = bounds.minY; y <= bounds.minY + bounds.height; y += 2) {
+        for (let x = bounds.minX; x <= bounds.minX + bounds.width; x += 2) {
+          const idx = (y * w + x) * 4;
+          if (imgData[idx + 3] > 40) {
+            if (x >= toneLeft) {
+              tonePixels++;
+              sumX += x;
+              sumY += y;
+              points.push({ x, y });
+            }
+          }
+        }
+      }
+
+      const totalInk = bounds.count / 4;
+      const toneRatio = tonePixels / Math.max(1, totalInk);
+
+      // 若右側 30% 區域墨跡少於總量 3% 或少於 5 個取樣點，判定為無聲調 (一聲)
+      if (toneRatio < 0.03 || points.length < 5) {
+        return { tone: '', name: '一聲 (無調號)' };
+      }
+
+      let avgX = sumX / points.length;
+      let avgY = sumY / points.length;
+      let num = 0, den = 0;
+      for (let p of points) {
+        num += (p.x - avgX) * (p.y - avgY);
+        den += (p.x - avgX) * (p.x - avgX);
+      }
+      const slope = den > 0 ? (num / den) : 0;
+
+      // 下坡斜線 (dx>0, dy>0) 為去聲 ˋ；上坡斜線 (dx>0, dy<0) 為陽平 ˊ；其餘為上聲 ˇ
+      if (slope > 0.35) {
+        return { tone: 'ˋ', name: '四聲 (ˋ)' };
+      } else if (slope < -0.35) {
+        return { tone: 'ˊ', name: '二聲 (ˊ)' };
+      } else {
+        return { tone: 'ˇ', name: '三聲 (ˇ)' };
+      }
+    }
+
+    /* 生成標準模板 (支援注音居中直書與橫書) */
+    function renderRefCanvas(text, isZhuyin, layout = 'vertical') {
+      const c = document.createElement('canvas');
+      c.width = 240;
+      c.height = 240;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#000';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      if (!isZhuyin || layout === 'horizontal') {
+        const fontSize = text.length > 2 ? 80 : (text.length === 2 ? 110 : 150);
+        ctx.font = `bold ${fontSize}px 'Noto Serif TC', '標楷體', 'BiauKai', serif`;
+        ctx.fillText(text, 120, 120);
+      } else {
+        // 注音直書 (符號本體居中排版)
+        const tones = ['ˊ', 'ˇ', 'ˋ', '˙', '‧'];
+        let tone = '';
+        let symbols = [];
+        for (let ch of text) {
+          if (tones.includes(ch)) tone = (ch === '‧') ? '˙' : ch;
+          else symbols.push(ch);
+        }
+        const count = symbols.length;
+        if (count === 1) {
+          ctx.font = "bold 150px 'Noto Serif TC', '標楷體', 'BiauKai', serif";
+          ctx.fillText(symbols[0], 120, 120);
+        } else if (count === 2) {
+          ctx.font = "bold 95px 'Noto Serif TC', '標楷體', 'BiauKai', serif";
+          ctx.fillText(symbols[0], 120, 65);
+          ctx.fillText(symbols[1], 120, 175);
+        } else if (count >= 3) {
+          ctx.font = "bold 70px 'Noto Serif TC', '標楷體', 'BiauKai', serif";
+          ctx.fillText(symbols[0], 120, 45);
+          ctx.fillText(symbols[1], 120, 120);
+          ctx.fillText(symbols[2], 120, 195);
+        }
+      }
+      return c;
+    }
+
+    // 輔助函數：計算 16x16 網格的四象限質量分佈 (左上, 右上, 左下, 右下)
+    function getQuadrantProfile(vec16) {
+      let tl = 0, tr = 0, bl = 0, br = 0;
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) tl += vec16[r * 16 + c];
+        for (let c = 8; c < 16; c++) tr += vec16[r * 16 + c];
+      }
+      for (let r = 8; r < 16; r++) {
+        for (let c = 0; c < 8; c++) bl += vec16[r * 16 + c];
+        for (let c = 8; c < 16; c++) br += vec16[r * 16 + c];
+      }
+      const sum = (tl + tr + bl + br) || 1;
+      return [tl / sum, tr / sum, bl / sum, br / sum];
+    }
+
+    /* 批改核心引擎 (優先判定「對/錯」，若寫錯直接判錯，不評工整；確定寫對才評定「工整/潦草」) */
+    function evaluateCanvas(player) {
+      const canvas = (player === 'p1') ? p1Canvas : p2Canvas;
+      const strokes = (player === 'p1') ? p1Strokes : p2Strokes;
+
+      const uBounds = getTightBounds(canvas);
+      const totalPixels = canvas.width * canvas.height;
+      const density = uBounds.count / totalPixels;
+
+      // 1. 檢驗：交白卷或筆劃極少
+      if (uBounds.count < 70 || strokes < 1) {
+        return { pass: false, reason: "尚未完成書寫或未作答", stamp: "❌ 筆劃不足", score: 0, isWrong: true };
+      }
+
+      // 2. 檢驗：惡意塗黑一整團
+      if (density > 0.45) {
+        return { pass: false, reason: "字跡塗黑一團，請勿塗鴉", stamp: "❌ 塗黑潦草", score: 10, isWrong: true };
+      }
+
+      // 3. 檢驗：字體極度微小
+      if (uBounds.width < 25 || uBounds.height < 25) {
+        return { pass: false, reason: "字體過小或蜷縮一角", stamp: "❌ 結構過小", score: 15, isWrong: true };
+      }
+
+      // 4. 提取用戶手寫的 16x16 與 8x8 特徵向量
+      const uVec16 = getNormalizedDensityVector(canvas, uBounds.minX, uBounds.minY, uBounds.width, uBounds.height, 16);
+      const uVec8 = getNormalizedDensityVector(canvas, uBounds.minX, uBounds.minY, uBounds.width, uBounds.height, 8);
+      const uQuad = getQuadrantProfile(uVec16);
+
+      const isZhuyin = (currentQ.type === "寫出注音");
+      let targetSimilarity = 0;
+
+      // =========================================================================
+      // 軌道一：注音雙重檢驗 (本體符號 + 聲調獨立檢驗)
+      // =========================================================================
+      if (isZhuyin) {
+        const targetParsed = parseZhuyin(currentQ.ans);
+        const userTone = detectZhuyinTone(canvas, uBounds);
+
+        // 1. 本體符號匹配度 (居中渲染比對，徹底排除聲調位移偏差)
+        const refBody = renderRefCanvas(targetParsed.body, true, 'vertical');
+        const bB = getTightBounds(refBody);
+        const vVec16 = getNormalizedDensityVector(refBody, bB.minX, bB.minY, bB.width, bB.height, 16);
+        const vVec8 = getNormalizedDensityVector(refBody, bB.minX, bB.minY, bB.width, bB.height, 8);
+        const bodySim = 0.70 * calcCosineSim(uVec16, vVec16, 256) + 0.30 * calcCosineSim(uVec8, vVec8, 64);
+
+        // 比對干擾選項本體
+        let bestDistractor = null;
+        let maxDistractorSim = 0;
+        if (currentQ.distractors && currentQ.distractors.length > 0) {
+          for (let d of currentQ.distractors) {
+            if (!d || d === currentQ.ans) continue;
+            const dParsed = parseZhuyin(d);
+            const dRef = renderRefCanvas(dParsed.body, true, 'vertical');
+            const db = getTightBounds(dRef);
+            const dv16 = getNormalizedDensityVector(dRef, db.minX, db.minY, db.width, db.height, 16);
+            const dv8 = getNormalizedDensityVector(dRef, db.minX, db.minY, db.width, db.height, 8);
+            const dSim = 0.70 * calcCosineSim(uVec16, dv16, 256) + 0.30 * calcCosineSim(uVec8, dv8, 64);
+            if (dSim > maxDistractorSim) {
+              maxDistractorSim = dSim;
+              bestDistractor = d;
+            }
+          }
+        }
+
+        // 檢驗 A：聲韻本體錯誤 (如寫成 ㄕㄨㄛ 或結構不符)
+        if (maxDistractorSim > bodySim + 0.08 && maxDistractorSim >= 0.38) {
+          return {
+            pass: false,
+            stamp: "❌ 注音寫錯！",
+            reason: `聲韻寫成「${bestDistractor}」！正解為「${currentQ.ans}」（${currentQ.hint}）`,
+            score: Math.round(bodySim * 100),
+            isWrong: true
+          };
+        }
+        if (bodySim < 0.28) {
+          return {
+            pass: false,
+            stamp: "❌ 注音寫錯！",
+            reason: `注音筆劃不符，非正解「${currentQ.ans}」！(正解為：${currentQ.ans})`,
+            score: Math.round(bodySim * 100),
+            isWrong: true
+          };
+        }
+
+        // 檢驗 B：聲調檢驗 (四聲 ˋ、二聲 ˊ、三聲 ˇ、一聲無調)
+        if (targetParsed.tone !== userTone.tone) {
+          if (targetParsed.tone !== '' && userTone.tone === '') {
+            return {
+              pass: false,
+              stamp: "❌ 漏寫聲調！",
+              reason: `漏寫聲調！寫成第一聲「${targetParsed.body}」，正解為「${currentQ.ans}」（${currentQ.hint}）`,
+              score: Math.round(bodySim * 100),
+              isWrong: true
+            };
+          } else if (targetParsed.tone === '' && userTone.tone !== '') {
+            return {
+              pass: false,
+              stamp: "❌ 聲調寫錯！",
+              reason: `本字為第一聲不標調，寫成「${targetParsed.body + userTone.tone}」！正解為「${currentQ.ans}」`,
+              score: Math.round(bodySim * 100),
+              isWrong: true
+            };
+          } else {
+            return {
+              pass: false,
+              stamp: "❌ 聲調寫錯！",
+              reason: `聲調錯誤！寫成「${targetParsed.body + userTone.tone}」(${userTone.name})，正解為「${currentQ.ans}」（${currentQ.hint}）`,
+              score: Math.round(bodySim * 100),
+              isWrong: true
+            };
+          }
+        }
+
+        // 注音本體與聲調均正確，第一層通關！
+        targetSimilarity = bodySim;
+
+      // =========================================================================
+      // 軌道二：國字評閱專用軌道 (嚴格辨別錯別字，如「墨」vs「默」)
+      // =========================================================================
+      } else {
+        const refC = renderRefCanvas(currentQ.ans, false, 'horizontal');
+        const bC = getTightBounds(refC);
+        const cVec16 = getNormalizedDensityVector(refC, bC.minX, bC.minY, bC.width, bC.height, 16);
+        const cVec8 = getNormalizedDensityVector(refC, bC.minX, bC.minY, bC.width, bC.height, 8);
+        targetSimilarity = 0.70 * calcCosineSim(uVec16, cVec16, 256) + 0.30 * calcCosineSim(uVec8, cVec8, 64);
+        const refQuad = getQuadrantProfile(cVec16);
+
+        let bestDistractor = null;
+        let maxDistractorSim = 0;
+        if (currentQ.distractors && currentQ.distractors.length > 0) {
+          for (let d of currentQ.distractors) {
+            if (!d || d === currentQ.ans) continue;
+            const dRef = renderRefCanvas(d, false, 'horizontal');
+            const db = getTightBounds(dRef);
+            const dVec16 = getNormalizedDensityVector(dRef, db.minX, db.minY, db.width, db.height, 16);
+            const dVec8 = getNormalizedDensityVector(dRef, db.minX, db.minY, db.width, db.height, 8);
+            const dSim = 0.70 * calcCosineSim(uVec16, dVec16, 256) + 0.30 * calcCosineSim(uVec8, dVec8, 64);
+            if (dSim > maxDistractorSim) {
+              maxDistractorSim = dSim;
+              bestDistractor = d;
+            }
+          }
+        }
+
+        let quadDiff = 0;
+        for (let i = 0; i < 4; i++) quadDiff += Math.abs(uQuad[i] - refQuad[i]);
+
+        // 判斷 1：寫成錯別字 (如寫成「墨」匹配度高於「默」0.08 以上)
+        if (bestDistractor && maxDistractorSim >= 0.55 && (maxDistractorSim > targetSimilarity + 0.08)) {
+          return {
+            pass: false,
+            stamp: "❌ 寫錯別字！",
+            reason: `寫成錯別字「${bestDistractor}」！正解為「${currentQ.ans}」（${currentQ.hint}）`,
+            score: Math.round(targetSimilarity * 100),
+            isWrong: true
+          };
+        }
+
+        // 判斷 2：非正解字形或結構嚴重錯誤
+        if (targetSimilarity < 0.30 || quadDiff > 0.40) {
+          return {
+            pass: false,
+            stamp: "❌ 寫錯字！",
+            reason: `筆劃結構錯誤，非正解「${currentQ.ans}」！(正解為：${currentQ.ans})`,
+            score: Math.round(targetSimilarity * 100),
+            isWrong: true
+          };
+        }
+      }
+
+      // =========================================================================
+      // 【第二層：字確定「寫對了」，接著進一步嚴格評定「工整」還是「潦草」！】
+      // =========================================================================
+      const expectedStrokes = getExpectedStrokes(currentQ.ans, isZhuyin);
+      let strokePenalty = 1.0;
+      const minReasonableStrokes = Math.max(2, Math.floor(expectedStrokes * 0.45));
+      if (strokes < minReasonableStrokes) {
+        const ratio = strokes / Math.max(2, expectedStrokes * 0.55);
+        strokePenalty = Math.max(0.55, 0.40 + 0.60 * ratio);
+      }
+
+      let neatnessScore = Math.round(Math.min(98, Math.max(10, targetSimilarity * 160 * strokePenalty)));
+
+      // 依據教師設定標準判定 (一般標準：55分及格；嚴格標準：70分及格；寬鬆標準：40分及格)
+      let passThreshold = 55;
+      let sloppyThreshold = 35;
+
+      if (gradingStandard === 'strict') {
+        passThreshold = 70;
+        sloppyThreshold = 45;
+      } else if (gradingStandard === 'loose') {
+        passThreshold = 40;
+        sloppyThreshold = 25;
+      }
+
+      if (neatnessScore >= passThreshold) {
+        return { 
+          pass: true, 
+          stamp: "⭕ 工整正確！", 
+          reason: `字形正確且筆畫工整！(工整度 ${neatnessScore}分)`, 
+          score: neatnessScore 
+        };
+      } else if (neatnessScore >= sloppyThreshold) {
+        return { 
+          pass: false, 
+          stamp: "⚠️ 字對但太潦草！", 
+          reason: `字形正確，但筆跡太過潦草！(工整度 ${neatnessScore}分，需達 ${passThreshold}分)`, 
+          score: neatnessScore 
+        };
+      } else {
+        return { 
+          pass: false, 
+          stamp: "❌ 筆劃散漫！", 
+          reason: `筆劃散漫無法辨識！(工整度 ${neatnessScore}分，老師可點擊印章一鍵改對)`, 
+          score: neatnessScore 
+        };
+      }
+    }
+
+    function gradeBothPlayers() {
+      revealAnswer(); // 同步揭曉正確答案
+
+      const r1 = evaluateCanvas('p1');
+      const r2 = evaluateCanvas('p2');
+
+      applyPlayerResult('p1', r1);
+      applyPlayerResult('p2', r2);
+
+      if (r1.pass || r2.pass) {
+        playSound('correct');
+        confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
+      } else {
+        playSound('wrong');
+      }
+    }
+
+    function applyPlayerResult(player, res) {
+      const stampEl = document.getElementById(`${player}-stamp`);
+      const statusEl = document.getElementById(`${player}-status-tag`);
+      stampEl.classList.remove('hidden');
+
+      if (res.pass) {
+        stampEl.innerHTML = `<span class="px-7 py-3 bg-emerald-600 text-white font-black text-3xl rounded-2xl border-4 border-white shadow-2xl rotate-[-8deg] pointer-events-none">${res.stamp}</span>`;
+        statusEl.className = "text-xs font-black text-emerald-600";
+        statusEl.innerText = `批改通過：${res.reason}`;
+        
+        if (player === 'p1') {
+          p1Score++;
+          document.getElementById('p1-score').innerText = p1Score;
+        } else {
+          p2Score++;
+          document.getElementById('p2-score').innerText = p2Score;
+        }
+      } else {
+        // 未通過時印章可點擊一鍵改對！
+        const isSloppy = res.stamp.includes("潦草");
+        const stampBg = isSloppy ? "bg-amber-600 hover:bg-emerald-600" : "bg-rose-600 hover:bg-emerald-600";
+        stampEl.innerHTML = `
+          <div onclick="overrideToCorrect('${player}')" class="cursor-pointer px-6 py-3 ${stampBg} text-white font-black text-xl rounded-2xl border-4 border-white shadow-2xl rotate-[-8deg] transition flex flex-col items-center gap-1 group">
+            <span>${res.stamp}</span>
+            <span class="text-xs bg-white/20 px-2.5 py-0.5 rounded-full group-hover:bg-white group-hover:text-emerald-800 transition">👉 點此一鍵改對 (+1分)</span>
+          </div>
+        `;
+        statusEl.className = isSloppy ? "text-xs font-black text-amber-600" : "text-xs font-black text-rose-600";
+        statusEl.innerText = `未通過：${res.reason}`;
+      }
+    }
+
+    function overrideToCorrect(player) {
+      playSound('correct');
+      confetti({ particleCount: 50, spread: 50, origin: { y: 0.6 } });
+      const stampEl = document.getElementById(`${player}-stamp`);
+      const statusEl = document.getElementById(`${player}-status-tag`);
+
+      stampEl.innerHTML = `<span class="px-7 py-3 bg-emerald-600 text-white font-black text-3xl rounded-2xl border-4 border-white shadow-2xl rotate-[-8deg] pointer-events-none">⭕ 老師判定正確！</span>`;
+      statusEl.className = "text-xs font-black text-emerald-600";
+      statusEl.innerText = "老師判定正確！加 1 分！";
+
+      if (player === 'p1') {
+        p1Score++;
+        document.getElementById('p1-score').innerText = p1Score;
+      } else {
+        p2Score++;
+        document.getElementById('p2-score').innerText = p2Score;
+      }
+    }
+
+    function resetBattleScores() {
+      p1Score = 0;
+      p2Score = 0;
+      document.getElementById('p1-score').innerText = '0';
+      document.getElementById('p2-score').innerText = '0';
+      clearBothCanvases();
+    }
+
+    /* =========================================================================
+     * 7. 模組四：課本文意理解深究邏輯 (80 題分類篩選 + 隨機抽題 + 手動切換解說)
+     * ========================================================================= */
+    let compQIndex = 0;
+    let isCompAnswered = false;
+    let currentCompFilter = "all";
+    let activeCompList = [...compQuestions];
+
+    function onCompFilterChange() {
+      const sel = document.getElementById('comp-lesson-filter').value;
+      currentCompFilter = sel;
+      if (sel === 'all') {
+        activeCompList = [...compQuestions];
+      } else {
+        activeCompList = compQuestions.filter(q => q.cat === sel);
+      }
+      loadCompQuestion(0);
+    }
+
+    function loadCompQuestion(idx) {
+      if (activeCompList.length === 0) activeCompList = [...compQuestions];
+      if (idx >= activeCompList.length) idx = 0;
+      if (idx < 0) idx = activeCompList.length - 1;
+      compQIndex = idx;
+      isCompAnswered = false;
+
+      const q = activeCompList[compQIndex];
+      document.getElementById('comp-q-num').innerText = compQIndex + 1;
+      document.getElementById('comp-total-num').innerText = activeCompList.length;
+      document.getElementById('comp-lesson-tag').innerText = q.lesson;
+      document.getElementById('comp-prompt').innerText = q.prompt;
+
+      // 隱藏解說卡片
+      document.getElementById('comp-explanation-card').classList.add('hidden');
+
+      // 渲染選項按鈕
+      const grid = document.getElementById('comp-options-grid');
+      grid.innerHTML = '';
+      const letters = ['A', 'B', 'C', 'D'];
+
+      q.options.forEach((opt, oIdx) => {
+        const btn = document.createElement('button');
+        btn.className = "comp-opt-btn p-5 bg-slate-50 hover:bg-indigo-50/70 border-2 border-slate-200 hover:border-indigo-400 rounded-2xl text-left font-chinese font-bold text-slate-800 text-lg sm:text-xl shadow-sm transition active:scale-98 flex items-center justify-between group";
+        btn.innerHTML = `
+          <div class="flex items-center gap-3.5">
+            <span class="w-8 h-8 rounded-xl bg-white border border-slate-300 group-hover:border-indigo-400 group-hover:bg-indigo-600 group-hover:text-white flex items-center justify-center font-mono font-black text-sm text-slate-600 transition">
+              ${letters[oIdx]}
+            </span>
+            <span>${opt.text}</span>
+          </div>
+          <span class="text-slate-300 group-hover:text-indigo-500 font-bold">➜</span>
+        `;
+        btn.onclick = () => handleCompChoice(opt, q, btn);
+        grid.appendChild(btn);
+      });
+    }
+
+    function handleCompChoice(selectedOpt, q, clickedBtn) {
+      if (isCompAnswered) return; // 避免重複作答
+      isCompAnswered = true;
+
+      const expCard = document.getElementById('comp-explanation-card');
+      const statusBadge = document.getElementById('comp-result-status');
+      expCard.classList.remove('hidden');
+
+      document.getElementById('comp-exp-main').innerText = q.mainExp;
+      document.getElementById('comp-exp-exam').innerText = q.examExp;
+
+      // 標註所有選項的對錯
+      const allBtns = document.querySelectorAll('.comp-opt-btn');
+      allBtns.forEach((btn, idx) => {
+        const opt = q.options[idx];
+        if (opt.isCorrect) {
+          btn.className = "comp-opt-btn p-5 bg-emerald-50 border-2 border-emerald-500 rounded-2xl text-left font-chinese font-black text-emerald-900 text-lg sm:text-xl shadow-sm flex items-center justify-between";
+        }
+      });
+
+      if (selectedOpt.isCorrect) {
+        playSound('correct');
+        confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
+        statusBadge.className = "px-3.5 py-1 rounded-lg text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300";
+        statusBadge.innerText = "✓ 學生作答正確！";
+      } else {
+        playSound('wrong');
+        clickedBtn.className = "comp-opt-btn p-5 bg-rose-50 border-2 border-rose-500 rounded-2xl text-left font-chinese font-black text-rose-900 text-lg sm:text-xl shadow-sm flex items-center justify-between animate-shake";
+        statusBadge.className = "px-3.5 py-1 rounded-lg text-xs font-black bg-rose-100 text-rose-800 border border-rose-300";
+        statusBadge.innerText = "✕ 學生作答錯誤，請老師解說！";
+      }
+    }
+
+    function prevCompQuestion() {
+      loadCompQuestion(compQIndex - 1);
+      playSound('flip');
+    }
+
+    function nextCompQuestion() {
+      loadCompQuestion(compQIndex + 1);
+      playSound('flip');
+    }
+
+    function randomCompQuestion() {
+      const rnd = Math.floor(Math.random() * activeCompList.length);
+      loadCompQuestion(rnd);
+      playSound('flip');
+    }
+
+    /* =========================================================================
+     * 8. 701 課堂點名大轉盤 (Lucky Wheel)
+     * ========================================================================= */
+    let wheelCanvas = null, wheelCtx = null;
+    let isSpinning = false;
+    let wheelAngle = 0;
+    let availableStudents = [...studentList701];
+    let currentWinner = null;
+
+    const sliceColors = [
+      '#ef4444', '#f97316', '#f59e0b', '#10b981', '#06b6d4', 
+      '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e',
+      '#14b8a6', '#84cc16', '#eab308', '#0ea5e9', '#a855f7'
+    ];
+
+    function openWheelModal() {
+      document.getElementById('wheel-modal').classList.remove('hidden');
+      initWheel();
+    }
+
+    function closeWheelModal() {
+      document.getElementById('wheel-modal').classList.add('hidden');
+    }
+
+    function initWheel() {
+      wheelCanvas = document.getElementById('wheel-canvas');
+      wheelCtx = wheelCanvas.getContext('2d');
+      drawWheel();
+      document.getElementById('wheel-remain-count').innerText = availableStudents.length;
+    }
+
+    function drawWheel() {
+      if (!wheelCtx) return;
+      const numSlices = availableStudents.length;
+      const arc = (2 * Math.PI) / numSlices;
+      const radius = 170;
+
+      wheelCtx.clearRect(0, 0, 340, 340);
+      wheelCtx.save();
+      wheelCtx.translate(170, 170);
+      wheelCtx.rotate(wheelAngle);
+
+      for (let i = 0; i < numSlices; i++) {
+        const startAngle = i * arc;
+        const endAngle = (i + 1) * arc;
+
+        wheelCtx.beginPath();
+        wheelCtx.moveTo(0, 0);
+        wheelCtx.arc(0, 0, radius, startAngle, endAngle);
+        wheelCtx.fillStyle = sliceColors[i % sliceColors.length];
+        wheelCtx.fill();
+        wheelCtx.strokeStyle = '#ffffff';
+        wheelCtx.lineWidth = 1.5;
+        wheelCtx.stroke();
+
+        // 繪製文字 (座號與姓名)
+        wheelCtx.save();
+        wheelCtx.rotate(startAngle + arc / 2);
+        wheelCtx.fillStyle = '#ffffff';
+        wheelCtx.font = 'bold 11px sans-serif';
+        wheelCtx.textAlign = 'right';
+        wheelCtx.shadowColor = 'rgba(0,0,0,0.4)';
+        wheelCtx.shadowBlur = 3;
+        const s = availableStudents[i];
+        wheelCtx.fillText(`${s.no}.${s.name}`, radius - 15, 4);
+        wheelCtx.restore();
+      }
+
+      wheelCtx.restore();
+    }
+
+    function spinStudentWheel() {
+      if (isSpinning || availableStudents.length === 0) return;
+      isSpinning = true;
+      document.getElementById('wheel-result-box').classList.add('hidden');
+
+      const spinBtn = document.getElementById('spin-btn');
+      spinBtn.disabled = true;
+
+      // 隨機選中一位同學
+      const winnerIndex = Math.floor(Math.random() * availableStudents.length);
+      currentWinner = availableStudents[winnerIndex];
+
+      const numSlices = availableStudents.length;
+      const arc = (2 * Math.PI) / numSlices;
+
+      // 計算目標停止角度 (頂部指針在 -Math.PI / 2 處)
+      const targetSliceAngle = (winnerIndex * arc) + (arc / 2);
+      const stopAngle = (1.5 * Math.PI) - targetSliceAngle;
+      const totalRotations = 6 + Math.floor(Math.random() * 4); // 旋轉 6~9 圈
+      const finalAngle = (totalRotations * 2 * Math.PI) + stopAngle;
+
+      let start = null;
+      const duration = 4000; // 4 秒旋轉
+      const initialAngle = wheelAngle % (2 * Math.PI);
+
+      function animateWheel(time) {
+        if (!start) start = time;
+        const elapsed = time - start;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // 緩動公式 (Ease-out Cubic)
+        const ease = 1 - Math.pow(1 - progress, 3);
+        wheelAngle = initialAngle + (finalAngle - initialAngle) * ease;
+        drawWheel();
+
+        // 旋轉滴答聲
+        if (Math.floor(elapsed / 100) % 2 === 0 && progress < 0.9) {
+          playSound('tick');
+        }
+
+        if (progress < 1) {
+          requestAnimationFrame(animateWheel);
+        } else {
+          isSpinning = false;
+          spinBtn.disabled = false;
+          showWheelWinner();
+        }
+      }
+
+      requestAnimationFrame(animateWheel);
+    }
+
+    function showWheelWinner() {
+      playSound('victory');
+      confetti({ particleCount: 90, spread: 70, origin: { y: 0.6 } });
+
+      const box = document.getElementById('wheel-result-box');
+      box.classList.remove('hidden');
+      document.getElementById('wheel-winner-text').innerText = `${currentWinner.no} 號 ${currentWinner.name}`;
+      document.getElementById('wheel-remain-count').innerText = availableStudents.length;
+    }
+
+    // 老師專屬模式切換處理：'kick' (抽到的踢出) vs 'keep' (不踢出換抽下一位)
+    function handleWinnerAction(action) {
+      if (!currentWinner) return;
+
+      if (action === 'kick') {
+        // 1. 踢出該中籤同學 (剩餘人數減 1，不重複抽到)
+        availableStudents = availableStudents.filter(s => s.no !== currentWinner.no);
+        if (availableStudents.length === 0) {
+          alert('701 全班同學已全部抽過一輪囉！將為您重置名單。');
+          availableStudents = [...studentList701];
+        }
+        document.getElementById('wheel-remain-count').innerText = availableStudents.length;
+        drawWheel(); // 立即重新切片並重繪轉盤
+      } else {
+        // 2. 不踢出，名單保持不變 (換隊進行，同學仍保留在轉盤中)
+      }
+
+      // 隱藏結果框，自動開始抽下一位！
+      document.getElementById('wheel-result-box').classList.add('hidden');
+      setTimeout(() => {
+        spinStudentWheel();
+      }, 300);
+    }
+
+    // 派至手寫板並踢出名單
+    function assignToPkAndKick(player) {
+      if (!currentWinner) return;
+      availableStudents = availableStudents.filter(s => s.no !== currentWinner.no);
+      if (availableStudents.length === 0) availableStudents = [...studentList701];
+      document.getElementById('wheel-remain-count').innerText = availableStudents.length;
+      drawWheel();
+
+      assignToPk(player);
+    }
+
+    // 重置全班名單 (26人)
+    function resetWheelStudents() {
+      availableStudents = [...studentList701];
+      document.getElementById('wheel-remain-count').innerText = availableStudents.length;
+      document.getElementById('wheel-result-box').classList.add('hidden');
+      drawWheel();
+      playSound('flip');
+    }
+
+    function assignToPk(player) {
+      if (!currentWinner) return;
+      closeWheelModal();
+      switchTab('battle');
+      const tag = document.getElementById(`${player}-status-tag`);
+      tag.innerText = `選手：${currentWinner.no} 號 ${currentWinner.name}`;
+      tag.className = "text-xs font-black text-indigo-600 animate-pulse";
+    }
+
+    /* =========================================================================
+     * 9. 模組一：注釋翻卡與消消樂
+     * ========================================================================= */
+    let currentFcIndex = 0;
+    let isFlipped = false;
+    let fcList = [...annotationsData];
+    let needReviewSet = new Set();
+    let isReviewOnly = false;
+
+    function switchFcSubMode(sub) {
+      if (sub === 'card') {
+        document.getElementById('sub-fc-card').className = "px-5 py-2 rounded-xl text-sm font-black bg-indigo-600 text-white shadow transition";
+        document.getElementById('sub-fc-match').className = "px-5 py-2 rounded-xl text-sm font-black bg-slate-100 text-slate-600 hover:bg-slate-200 transition";
+        document.getElementById('fc-card-view').classList.remove('hidden');
+        document.getElementById('fc-match-view').classList.add('hidden');
+        document.getElementById('fc-card-controls').classList.remove('hidden');
+        renderCurrentFlashcard();
+      } else {
+        document.getElementById('sub-fc-match').className = "px-5 py-2 rounded-xl text-sm font-black bg-indigo-600 text-white shadow transition";
+        document.getElementById('sub-fc-card').className = "px-5 py-2 rounded-xl text-sm font-black bg-slate-100 text-slate-600 hover:bg-slate-200 transition";
+        document.getElementById('fc-card-view').classList.add('hidden');
+        document.getElementById('fc-match-view').classList.remove('hidden');
+        document.getElementById('fc-card-controls').classList.add('hidden');
+        startMemoryMatchGame();
+      }
+    }
+
+    function renderCurrentFlashcard() {
+      if (fcList.length === 0) {
+        document.getElementById('fc-front-text').innerText = "太厲害了！";
+        document.getElementById('fc-front-sub').innerText = "待加強卡片已全部掌握！";
+        document.getElementById('fc-back-text').innerText = "點擊重設返回全部卡片";
+        return;
+      }
+      const item = fcList[currentFcIndex];
+      const isReverse = document.getElementById('fc-reverse-toggle').checked;
+      isFlipped = false;
+      document.getElementById('flashcard-inner').classList.remove('rotate-y-180');
+
+      document.getElementById('fc-progress').innerText = `${currentFcIndex + 1} / ${fcList.length}`;
+      document.getElementById('fc-weak-count').innerText = needReviewSet.size;
+
+      if (!isReverse) {
+        document.getElementById('fc-front-tag').innerText = "課文詞語";
+        document.getElementById('fc-front-text').innerText = item.term;
+        document.getElementById('fc-front-sub').innerText = `出自〈${item.lesson}〉`;
+
+        document.getElementById('fc-back-tag').innerText = "段考標準注釋";
+        document.getElementById('fc-back-title').innerText = `【${item.term}】`;
+        document.getElementById('fc-back-text').innerText = item.def;
+      } else {
+        document.getElementById('fc-front-tag').innerText = "注釋釋義（猜詞語）";
+        document.getElementById('fc-front-text').innerText = item.def;
+        document.getElementById('fc-front-sub').innerText = `出自〈${item.lesson}〉`;
+
+        document.getElementById('fc-back-tag').innerText = "原始詞語";
+        document.getElementById('fc-back-title').innerText = "對應詞語解答：";
+        document.getElementById('fc-back-text').innerText = item.term;
+      }
+    }
+
+    function flipCurrentCard() {
+      isFlipped = !isFlipped;
+      playSound('flip');
+      const inner = document.getElementById('flashcard-inner');
+      if (isFlipped) inner.classList.add('rotate-y-180');
+      else inner.classList.remove('rotate-y-180');
+    }
+
+    function nextFlashcard() {
+      currentFcIndex = (currentFcIndex < fcList.length - 1) ? currentFcIndex + 1 : 0;
+      renderCurrentFlashcard();
+    }
+
+    function prevFlashcard() {
+      currentFcIndex = (currentFcIndex > 0) ? currentFcIndex - 1 : fcList.length - 1;
+      renderCurrentFlashcard();
+    }
+
+    function markFlashcard(isMastered) {
+      const item = fcList[currentFcIndex];
+      if (isMastered) {
+        playSound('correct');
+        needReviewSet.delete(item.id);
+      } else {
+        playSound('wrong');
+        needReviewSet.add(item.id);
+      }
+      nextFlashcard();
+    }
+
+    function shuffleFlashcards() {
+      fcList.sort(() => Math.random() - 0.5);
+      currentFcIndex = 0;
+      renderCurrentFlashcard();
+      playSound('flip');
+    }
+
+    function filterNeedReview() {
+      isReviewOnly = !isReviewOnly;
+      const btn = document.getElementById('fc-review-btn');
+      if (isReviewOnly) {
+        btn.classList.add('bg-rose-600', 'text-white');
+        fcList = annotationsData.filter(i => needReviewSet.has(i.id));
+        if (fcList.length === 0) {
+          alert('目前沒有待加強卡片！真棒！');
+          isReviewOnly = false;
+          btn.classList.remove('bg-rose-600', 'text-white');
+          fcList = [...annotationsData];
+        }
+      } else {
+        btn.classList.remove('bg-rose-600', 'text-white');
+        fcList = [...annotationsData];
+      }
+      currentFcIndex = 0;
+      renderCurrentFlashcard();
+    }
+
+    function resetFlashcard() {
+      renderCurrentFlashcard();
+    }
+
+    /* 記憶消消樂 */
+    let matchCards = [];
+    let flippedCards = [];
+    let matchMoves = 0;
+    let matchedPairs = 0;
+
+    function startMemoryMatchGame() {
+      matchMoves = 0;
+      matchedPairs = 0;
+      flippedCards = [];
+      document.getElementById('match-moves').innerText = '0';
+      document.getElementById('match-pairs').innerText = '0';
+
+      const selected = [...annotationsData].sort(() => Math.random() - 0.5).slice(0, 6);
+      matchCards = [];
+      selected.forEach(item => {
+        matchCards.push({ id: item.id, type: 'term', text: item.term, matched: false });
+        matchCards.push({ id: item.id, type: 'def', text: item.def, matched: false });
+      });
+      matchCards.sort(() => Math.random() - 0.5);
+
+      const grid = document.getElementById('memory-grid');
+      grid.innerHTML = '';
+      matchCards.forEach((card, idx) => {
+        const cardEl = document.createElement('div');
+        cardEl.className = "bg-white border-2 border-slate-200 hover:border-indigo-400 rounded-2xl p-4 flex items-center justify-center text-center cursor-pointer min-h-[120px] shadow-sm transition active:scale-95";
+        cardEl.innerHTML = `
+          <div class="card-cover text-3xl font-black text-indigo-400">❓</div>
+          <div class="card-content hidden text-base font-chinese font-bold text-slate-800 leading-snug">
+            ${card.text}
+          </div>
+        `;
+        cardEl.onclick = () => handleMemoryCardClick(idx, cardEl);
+        grid.appendChild(cardEl);
+      });
+    }
+
+    function handleMemoryCardClick(idx, el) {
+      if (flippedCards.length >= 2 || matchCards[idx].matched || flippedCards.some(f => f.idx === idx)) return;
+
+      playSound('flip');
+      el.querySelector('.card-cover').classList.add('hidden');
+      el.querySelector('.card-content').classList.remove('hidden');
+      el.classList.add('border-indigo-500', 'bg-indigo-50');
+      flippedCards.push({ idx, el });
+
+      if (flippedCards.length === 2) {
+        matchMoves++;
+        document.getElementById('match-moves').innerText = matchMoves;
+        const [c1, c2] = flippedCards;
+        const card1 = matchCards[c1.idx];
+        const card2 = matchCards[c2.idx];
+
+        if (card1.id === card2.id && card1.type !== card2.type) {
+          playSound('correct');
+          card1.matched = true;
+          card2.matched = true;
+          matchedPairs++;
+          document.getElementById('match-pairs').innerText = matchedPairs;
+          c1.el.className = "bg-emerald-50 border-2 border-emerald-400 rounded-2xl p-4 flex items-center justify-center text-center min-h-[120px] shadow-sm";
+          c2.el.className = "bg-emerald-50 border-2 border-emerald-400 rounded-2xl p-4 flex items-center justify-center text-center min-h-[120px] shadow-sm";
+          flippedCards = [];
+
+          if (matchedPairs === 6) {
+            playSound('victory');
+            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+          }
+        } else {
+          playSound('wrong');
+          setTimeout(() => {
+            c1.el.querySelector('.card-cover').classList.remove('hidden');
+            c1.el.querySelector('.card-content').classList.add('hidden');
+            c1.el.classList.remove('border-indigo-500', 'bg-indigo-50');
+
+            c2.el.querySelector('.card-cover').classList.remove('hidden');
+            c2.el.querySelector('.card-content').classList.add('hidden');
+            c2.el.classList.remove('border-indigo-500', 'bg-indigo-50');
+            flippedCards = [];
+          }, 850);
+        }
+      }
+    }
+
+    /* =========================================================================
+     * 10. 模組二：國字注音陷阱狂暴戰 (Time Attack)
+     * ========================================================================= */
+    let quizTimeLimit = 60;
+    let quizRemainingTime = 60;
+    let quizTimerInterval = null;
+    let quizScore = 0;
+    let quizCombo = 0;
+    let quizMaxCombo = 0;
+    let quizCorrectCount = 0;
+    let currentQuizItem = null;
+    let quizShuffledPool = [];
+
+    function selectQuizTime(sec) {
+      quizTimeLimit = sec;
+      document.querySelectorAll('.quiz-time-btn').forEach(btn => {
+        if (parseInt(btn.dataset.time) === sec) {
+          btn.className = "quiz-time-btn py-4 rounded-2xl border-2 border-amber-500 bg-amber-50 text-amber-800 font-black text-lg shadow-sm";
+        } else {
+          btn.className = "quiz-time-btn py-4 rounded-2xl border border-slate-200 bg-slate-50 text-slate-600 hover:bg-white font-black text-lg";
+        }
+      });
+    }
+
+    function startQuizGame() {
+      document.getElementById('quiz-start-screen').classList.add('hidden');
+      document.getElementById('quiz-end-screen').classList.add('hidden');
+      document.getElementById('quiz-play-screen').classList.remove('hidden');
+
+      quizScore = 0;
+      quizCombo = 0;
+      quizMaxCombo = 0;
+      quizCorrectCount = 0;
+      quizRemainingTime = quizTimeLimit;
+      document.getElementById('quiz-score').innerText = '0';
+      document.getElementById('quiz-timer').innerText = quizRemainingTime;
+      document.getElementById('combo-badge').classList.add('hidden');
+
+      quizShuffledPool = [...pkQuestions].sort(() => Math.random() - 0.5);
+      nextQuizQuestion();
+
+      clearInterval(quizTimerInterval);
+      quizTimerInterval = setInterval(() => {
+        quizRemainingTime--;
+        document.getElementById('quiz-timer').innerText = quizRemainingTime;
+        if (quizRemainingTime <= 10) {
+          document.getElementById('quiz-timer').classList.add('text-rose-600');
+          playTone(600, 'square', 0.05);
+        } else {
+          document.getElementById('quiz-timer').classList.remove('text-rose-600');
+        }
+        if (quizRemainingTime <= 0) {
+          endQuizGame();
+        }
+      }, 1000);
+    }
+
+    function nextQuizQuestion() {
+      if (quizShuffledPool.length === 0) {
+        quizShuffledPool = [...pkQuestions].sort(() => Math.random() - 0.5);
+      }
+      currentQuizItem = quizShuffledPool.pop();
+
+      document.getElementById('quiz-q-type').innerText = currentQuizItem.type;
+      document.getElementById('quiz-prompt').innerText = `${currentQuizItem.prefix}「${currentQuizItem.target}」${currentQuizItem.suffix} 的${currentQuizItem.type === '寫出注音' ? '注音' : '國字'}？`;
+      
+      const options = [currentQuizItem.ans, ...currentQuizItem.distractors].sort(() => Math.random() - 0.5);
+      const container = document.getElementById('quiz-options-container');
+      container.innerHTML = '';
+
+      const letters = ['A', 'B', 'C', 'D'];
+      options.forEach((opt, idx) => {
+        const btn = document.createElement('button');
+        btn.className = "py-5 px-6 bg-white hover:bg-amber-50/60 border-2 border-slate-200 hover:border-amber-400 rounded-2xl text-left flex items-center justify-between transition active:scale-98 shadow-sm group";
+        btn.innerHTML = `
+          <div class="flex items-center gap-4">
+            <span class="w-9 h-9 rounded-xl bg-slate-100 group-hover:bg-amber-200 group-hover:text-amber-900 flex items-center justify-center font-mono font-black text-slate-500 text-base">
+              ${letters[idx]}
+            </span>
+            <span class="text-3xl font-chinese font-black text-slate-800">${opt}</span>
+          </div>
+          <span class="text-slate-300 group-hover:text-amber-500 text-xl font-bold">➜</span>
+        `;
+        btn.onclick = () => handleQuizAnswer(opt, btn);
+        container.appendChild(btn);
+      });
+    }
+
+    function handleQuizAnswer(selected, btnElement) {
+      const isCorrect = (selected === currentQuizItem.ans);
+      const feedback = document.getElementById('quiz-feedback');
+      feedback.classList.remove('hidden');
+
+      if (isCorrect) {
+        playSound('correct');
+        quizScore += 10 + (quizCombo * 2);
+        quizCombo++;
+        quizCorrectCount++;
+        if (quizCombo > quizMaxCombo) quizMaxCombo = quizCombo;
+
+        btnElement.classList.add('border-emerald-500', 'bg-emerald-50');
+        feedback.className = "mt-4 p-3 rounded-2xl text-center text-sm font-black bg-emerald-100 text-emerald-800 border border-emerald-300 block animate-pulse";
+        feedback.innerText = `答對了！+${10 + ((quizCombo - 1) * 2)}分！`;
+
+        if (quizCombo >= 3) {
+          document.getElementById('combo-badge').classList.remove('hidden');
+          document.getElementById('quiz-combo').innerText = quizCombo;
+        }
+      } else {
+        playSound('wrong');
+        quizCombo = 0;
+        document.getElementById('combo-badge').classList.add('hidden');
+        btnElement.classList.add('border-rose-500', 'bg-rose-50', 'animate-shake');
+        feedback.className = "mt-4 p-3 rounded-2xl text-center text-sm font-black bg-rose-100 text-rose-800 border border-rose-300 block";
+        feedback.innerText = `答錯！正解為【${currentQuizItem.ans}】（${currentQuizItem.hint}）`;
+      }
+
+      document.getElementById('quiz-score').innerText = quizScore;
+      setTimeout(() => {
+        feedback.classList.add('hidden');
+        nextQuizQuestion();
+      }, 500);
+    }
+
+    function stopQuizGame() {
+      endQuizGame();
+    }
+
+    function endQuizGame() {
+      clearInterval(quizTimerInterval);
+      playSound('victory');
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+
+      document.getElementById('quiz-play-screen').classList.add('hidden');
+      document.getElementById('quiz-end-screen').classList.remove('hidden');
+
+      document.getElementById('final-score').innerText = quizScore;
+      document.getElementById('final-correct').innerText = `${quizCorrectCount} 題`;
+      document.getElementById('final-combo').innerText = `${quizMaxCombo} Combo`;
+
+      let rank = "錦和段考狀元 👑";
+      if (quizScore < 80) rank = "再接再厲，考前大衝刺 🏃";
+      else if (quizScore < 150) rank = "國文探花 🥈";
+      else if (quizScore < 220) rank = "榜眼高手 🥇";
+      document.getElementById('final-rank').innerText = rank;
+
+      const oldHigh = parseInt(document.getElementById('quiz-high-score').innerText) || 0;
+      if (quizScore > oldHigh) document.getElementById('quiz-high-score').innerText = quizScore;
+      const oldMax = parseInt(document.getElementById('quiz-max-combo').innerText) || 0;
+      if (quizMaxCombo > oldMax) document.getElementById('quiz-max-combo').innerText = quizMaxCombo;
+    }
+
+    function resetToQuizStart() {
+      document.getElementById('quiz-end-screen').classList.add('hidden');
+      document.getElementById('quiz-start-screen').classList.remove('hidden');
+    }
+
+    // 頁面預設載入雙人手寫擂台 PK
+    window.onload = () => {
+      initBattleModule();
+    };
+  </script>
+</body>
+</html>
