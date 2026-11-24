@@ -856,9 +856,9 @@
       { id: 87, type: "寫出國字", prefix: "", target: "ㄅㄧㄢ", suffix: "蝠", ans: "蝙", hint: "蝙蝠為虫部「蝙」", distractors: ["編", "偏", "篇"], isTone: false },
       { id: 88, type: "寫出注音", prefix: "", target: "惹", suffix: "人厭", ans: "ㄖㄜˇ", hint: "惹人厭讀上聲 ㄖㄜˇ", distractors: ["ㄖㄜˋ", "ㄖㄜˊ", "ㄖㄜ"], isTone: true },
       { id: 89, type: "寫出國字", prefix: "泥", target: "ㄋㄧㄥˋ", suffix: "", ans: "濘", hint: "泥濘為水部「濘」", distractors: ["擰", "嚀", "獰"], isTone: false },
-      { id: 90, type: "寫出注音", prefix: "", target: "ㄋㄧㄥˇ", suffix: "緊螺絲", ans: "ㄋㄧㄥˇ", hint: "轉動螺絲讀上聲 ㄋㄧㄥˇ", distractors: ["ㄋㄧㄥˊ", "ㄋㄧㄥˋ", "ㄋㄧㄥ"], isTone: true },
-      { id: 91, type: "寫出注音", prefix: "叮", target: "ㄋㄧㄥˊ", suffix: "", ans: "ㄋㄧㄥˊ", hint: "叮嚀讀陽平 ㄋㄧㄥˊ", distractors: ["ㄋㄧㄥˇ", "ㄋㄧㄥˋ", "ㄋㄧㄥ"], isTone: true },
-      { id: 92, type: "寫出注音", prefix: "面目猙", target: "ㄋㄧㄥˊ", suffix: "", ans: "ㄋㄧㄥˊ", hint: "面目猙獰讀陽平 ㄋㄧㄥˊ", distractors: ["ㄋㄧㄥˇ", "ㄋㄧㄥˋ", "ㄋㄧㄥ"], isTone: true },
+      { id: 90, type: "寫出國字", prefix: "", target: "ㄋㄧㄥˇ", suffix: "緊螺絲", ans: "擰", hint: "擰緊為手部「擰」", distractors: ["嚀", "獰", "濘"], isTone: false },
+      { id: 91, type: "寫出國字", prefix: "叮", target: "ㄋㄧㄥˊ", suffix: "", ans: "嚀", hint: "叮嚀為口部「嚀」", distractors: ["獰", "擰", "濘"], isTone: false },
+      { id: 92, type: "寫出國字", prefix: "面目猙", target: "ㄋㄧㄥˊ", suffix: "", ans: "獰", hint: "面目猙獰為犬部「獰」", distractors: ["嚀", "擰", "濘"], isTone: false },
       { id: 93, type: "寫出國字", prefix: "", target: "ㄆㄨˊ", suffix: "實無華", ans: "樸", hint: "樸實為木部「樸」", distractors: ["璞", "僕", "撲"], isTone: false },
       { id: 94, type: "寫出國字", prefix: "", target: "ㄆㄨˊ", suffix: "玉", ans: "璞", hint: "璞玉為玉部「璞」", distractors: ["樸", "僕", "撲"], isTone: false },
       { id: 95, type: "寫出國字", prefix: "奴", target: "ㄆㄨˊ", suffix: "", ans: "僕", hint: "奴僕為人部「僕」", distractors: ["樸", "璞", "撲"], isTone: false },
@@ -2041,7 +2041,7 @@
       "夥": 14, "計": 9, "隸": 17, "陝": 9, "西": 6, "相": 9,
       "苟": 8, "荀": 9, "筍": 12, "絕": 12, "決": 7, "抉": 7,
       "塑": 13, "樸": 16, "璞": 16, "僕": 14, "撲": 15, "烽": 11,
-      "鳴": 14, "嗚": 13, "溫": 12, "瘟": 14, "擇": 16, "澤": 16,
+      "鳴": 14, "嗚": 13, "溫": 12, "瘟": 14, "醞": 17, "蘊": 19, "擇": 16, "澤": 16,
       "繹": 19, "驛": 23, "譯": 20, "朽": 6, "巧": 5, "磋": 14,
       "蹉": 17, "疆": 19, "韁": 19, "僵": 15, "殭": 17
     };
@@ -2156,83 +2156,73 @@
           handleMove(e.pointerId, getPointerPos(e));
         }, { passive: false });
 
-        canvas.addEventListener('pointerup', (e) => {
+        const endPointer = (e) => {
           e.preventDefault();
           try { canvas.releasePointerCapture(e.pointerId); } catch(err){}
           handleEnd(e.pointerId);
-        }, { passive: false });
-
-        canvas.addEventListener('pointercancel', (e) => {
-          e.preventDefault();
-          handleEnd(e.pointerId);
-        }, { passive: false });
-
-        canvas.addEventListener('lostpointercapture', (e) => {
-          handleEnd(e.pointerId);
-        });
-      } else {
-        // 2. 舊式觸控後備 (按 Touch Identifier 分流，避免抓錯另一邊畫布)
-        canvas.addEventListener('touchstart', (e) => {
-          e.preventDefault();
-          for (let i = 0; i < e.changedTouches.length; i++) {
-            const t = e.changedTouches[i];
-            const rect = canvas.getBoundingClientRect();
-            const pos = {
-              x: (t.clientX - rect.left) * (canvas.width / rect.width),
-              y: (t.clientY - rect.top) * (canvas.height / rect.height)
-            };
-            handleStart(t.identifier, pos);
-          }
-        }, { passive: false });
-
-        canvas.addEventListener('touchmove', (e) => {
-          e.preventDefault();
-          for (let i = 0; i < e.changedTouches.length; i++) {
-            const t = e.changedTouches[i];
-            const rect = canvas.getBoundingClientRect();
-            const pos = {
-              x: (t.clientX - rect.left) * (canvas.width / rect.width),
-              y: (t.clientY - rect.top) * (canvas.height / rect.height)
-            };
-            handleMove(t.identifier, pos);
-          }
-        }, { passive: false });
-
-        canvas.addEventListener('touchend', (e) => {
-          e.preventDefault();
-          for (let i = 0; i < e.changedTouches.length; i++) {
-            handleEnd(e.changedTouches[i].identifier);
-          }
-        }, { passive: false });
-
-        canvas.addEventListener('touchcancel', (e) => {
-          e.preventDefault();
-          for (let i = 0; i < e.changedTouches.length; i++) {
-            handleEnd(e.changedTouches[i].identifier);
-          }
-        }, { passive: false });
-
-        // 滑鼠後備
-        let isMouseDown = false;
-        canvas.addEventListener('mousedown', (e) => {
-          e.preventDefault();
-          isMouseDown = true;
-          handleStart('mouse', getPointerPos(e));
-        });
-        canvas.addEventListener('mousemove', (e) => {
-          if (!isMouseDown) return;
-          e.preventDefault();
-          handleMove('mouse', getPointerPos(e));
-        });
-        const stopMouse = (e) => {
-          if (isMouseDown) {
-            isMouseDown = false;
-            handleEnd('mouse');
-          }
         };
-        canvas.addEventListener('mouseup', stopMouse);
-        canvas.addEventListener('mouseleave', stopMouse);
+        canvas.addEventListener('pointerup', endPointer, { passive: false });
+        canvas.addEventListener('pointercancel', endPointer, { passive: false });
+        canvas.addEventListener('lostpointercapture', endPointer);
       }
+
+      // 2. 原生滑鼠事件雙重保險 (確保滑鼠、筆電觸控板 100% 能流暢書寫)
+      let isMouseDown = false;
+      canvas.addEventListener('mousedown', (e) => {
+        if (activePointers.size > 0 && e.pointerId !== undefined) return;
+        isMouseDown = true;
+        handleStart('mouse', getPointerPos(e));
+      });
+      canvas.addEventListener('mousemove', (e) => {
+        if (!isMouseDown) return;
+        handleMove('mouse', getPointerPos(e));
+      });
+      const stopMouse = () => {
+        if (isMouseDown) {
+          isMouseDown = false;
+          handleEnd('mouse');
+        }
+      };
+      canvas.addEventListener('mouseup', stopMouse);
+      canvas.addEventListener('mouseleave', stopMouse);
+      window.addEventListener('mouseup', stopMouse);
+
+      // 3. 舊式觸控後備 (按 Touch Identifier 分流，避免抓錯另一邊畫布)
+      canvas.addEventListener('touchstart', (e) => {
+        if (window.PointerEvent && activePointers.size > 0) return;
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          const rect = canvas.getBoundingClientRect();
+          const pos = {
+            x: (t.clientX - rect.left) * (canvas.width / rect.width),
+            y: (t.clientY - rect.top) * (canvas.height / rect.height)
+          };
+          handleStart('touch_' + t.identifier, pos);
+        }
+      }, { passive: false });
+
+      canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          const rect = canvas.getBoundingClientRect();
+          const pos = {
+            x: (t.clientX - rect.left) * (canvas.width / rect.width),
+            y: (t.clientY - rect.top) * (canvas.height / rect.height)
+          };
+          handleMove('touch_' + t.identifier, pos);
+        }
+      }, { passive: false });
+
+      const stopTouch = (e) => {
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          handleEnd('touch_' + e.changedTouches[i].identifier);
+        }
+      };
+      canvas.addEventListener('touchend', stopTouch, { passive: false });
+      canvas.addEventListener('touchcancel', stopTouch, { passive: false });
     }
 
     function clearCanvas(player) {
@@ -2691,8 +2681,8 @@
           };
         }
 
-        // 判斷 2：非正解字形或結構嚴重錯誤
-        if (targetSimilarity < 0.30 || quadDiff > 0.40) {
+        // 判斷 2：非正解字形或結構嚴重錯誤 (相似度過低，或相似度偏低且結構嚴重不符)
+        if (targetSimilarity < 0.28 || (targetSimilarity < 0.38 && quadDiff > 0.48)) {
           return {
             pass: false,
             stamp: "❌ 寫錯字！",
@@ -2743,23 +2733,6 @@
           score: neatnessScore 
         };
       } else {
-        return { 
-          pass: false, 
-          stamp: "❌ 筆劃散漫！", 
-          reason: `筆劃散漫無法辨識！(工整度 ${neatnessScore}分，老師可點擊印章一鍵改對)`, 
-          score: neatnessScore 
-        };
-      }
-    }
-        // 抓出字對但太潦草！不予通過
-        return { 
-          pass: false, 
-          stamp: "⚠️ 字對但太潦草！", 
-          reason: `字形正確，但筆跡太過潦草扭曲！(工整度 ${neatnessScore}分，需達 ${passThreshold}分)`, 
-          score: neatnessScore 
-        };
-      } else {
-        // 筆劃散漫無法辨識
         return { 
           pass: false, 
           stamp: "❌ 筆劃散漫！", 
